@@ -1,0 +1,1482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Team Rota</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --green: #1A4D3A;
+  --green-mid: #2D6E52;
+  --green-light: #3D8F6A;
+  --green-pale: #EAF3EE;
+  --green-pale2: #D4EAE0;
+  --bg: #F8FAF9;
+  --white: #FFFFFF;
+  --border: #D8E6DF;
+  --border2: #C0D8CC;
+  --text: #111C17;
+  --muted: #6B8C7C;
+  --muted2: #9AB5A8;
+  --today-bg: #E8F5EE;
+  --weekend-bg: #F5F8F6;
+  --cover: #B45309;
+  --cover-bg: #FEF3C7;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --shadow: 0 1px 3px rgba(26,77,58,0.08), 0 1px 2px rgba(26,77,58,0.04);
+  --shadow-md: 0 4px 16px rgba(26,77,58,0.12), 0 2px 4px rgba(26,77,58,0.06);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Manrope', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 13px; }
+
+/* ── LOCK SCREEN ── */
+.lock-screen {
+  position: fixed; inset: 0; background: var(--green);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 9999; flex-direction: column; gap: 0;
+}
+.lock-screen.hidden { display: none; }
+.lock-box {
+  background: var(--white); border-radius: 20px;
+  padding: 40px 36px; width: 340px; text-align: center;
+  box-shadow: var(--shadow-md);
+}
+.lock-logo { font-size: 32px; margin-bottom: 16px; }
+.lock-title { font-size: 18px; font-weight: 800; color: var(--green); margin-bottom: 6px; letter-spacing: -0.02em; }
+.lock-sub { font-size: 12px; color: var(--muted); margin-bottom: 28px; line-height: 1.5; }
+.lock-btns { display: flex; flex-direction: column; gap: 10px; }
+.lock-btn {
+  font-family: 'Manrope', sans-serif;
+  font-size: 13px; font-weight: 700;
+  padding: 12px 20px; border-radius: 10px; border: none;
+  cursor: pointer; transition: all 0.15s; letter-spacing: 0.01em;
+}
+.lock-btn.admin { background: var(--green); color: #fff; }
+.lock-btn.admin:hover { background: var(--green-mid); }
+.lock-btn.viewer { background: var(--green-pale); color: var(--green); border: 1.5px solid var(--border2); }
+.lock-btn.viewer:hover { background: var(--green-pale2); }
+
+/* PIN modal */
+.pin-modal {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+  display: none; align-items: center; justify-content: center; z-index: 10000;
+}
+.pin-modal.open { display: flex; }
+.pin-box {
+  background: var(--white); border-radius: 16px;
+  padding: 32px 28px; width: 300px; text-align: center;
+  box-shadow: var(--shadow-md);
+}
+.pin-title { font-size: 15px; font-weight: 700; color: var(--green); margin-bottom: 6px; }
+.pin-sub { font-size: 12px; color: var(--muted); margin-bottom: 20px; }
+.pin-inp {
+  font-family: 'Manrope', sans-serif;
+  font-size: 22px; font-weight: 700; letter-spacing: 0.3em;
+  text-align: center; color: var(--green);
+  border: 2px solid var(--border2); border-radius: 10px;
+  padding: 10px 16px; width: 100%; outline: none; margin-bottom: 12px;
+  transition: border-color 0.15s;
+}
+.pin-inp:focus { border-color: var(--green); }
+.pin-inp.error { border-color: #DC2626; animation: shake 0.3s; }
+@keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
+.pin-error { font-size: 11px; color: #DC2626; min-height: 16px; margin-bottom: 8px; font-weight: 600; }
+.pin-actions { display: flex; gap: 8px; }
+.pin-btn {
+  font-family: 'Manrope', sans-serif;
+  flex: 1; font-size: 12px; font-weight: 700;
+  padding: 9px; border-radius: 8px; border: none; cursor: pointer; transition: all 0.15s;
+}
+.pin-btn.confirm { background: var(--green); color: #fff; }
+.pin-btn.confirm:hover { background: var(--green-mid); }
+.pin-btn.cancel { background: var(--bg); color: var(--muted); border: 1px solid var(--border2); }
+.pin-btn.cancel:hover { background: var(--border); }
+
+/* ── VIEW-ONLY BANNER ── */
+.view-banner {
+  background: #FEF3C7; border-bottom: 1px solid #FDE68A;
+  padding: 8px 32px; font-size: 11px; font-weight: 600;
+  color: #92400E; display: none; align-items: center; gap: 8px;
+}
+.view-banner.show { display: flex; }
+.view-banner span { flex: 1; }
+
+/* ── TOPBAR ── */
+.topbar {
+  background: var(--green); padding: 0 32px;
+  display: flex; align-items: center; justify-content: space-between;
+  height: 56px; position: sticky; top: 0; z-index: 200;
+  flex-wrap: wrap; gap: 10px;
+}
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand-icon {
+  width: 30px; height: 30px; background: rgba(255,255,255,0.15);
+  border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 15px;
+}
+.brand h1 { font-size: 15px; font-weight: 700; color: #fff; letter-spacing: -0.02em; }
+.brand-sub { font-size: 11px; color: rgba(255,255,255,0.5); font-weight: 400; margin-left: 2px; }
+.topbar-btns { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.tbtn {
+  font-family: 'Manrope', sans-serif; font-size: 12px; font-weight: 600;
+  padding: 6px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.1); color: #fff; cursor: pointer; transition: all 0.15s;
+}
+.tbtn:hover { background: rgba(255,255,255,0.2); }
+.tbtn.solid { background: #fff; color: var(--green); border-color: transparent; }
+.tbtn.solid:hover { background: var(--green-pale); }
+.tbtn.admin-only { display: none; }
+body.is-admin .tbtn.admin-only { display: inline-flex; }
+.mode-badge {
+  font-size: 10px; font-weight: 800; letter-spacing: 0.08em;
+  padding: 4px 10px; border-radius: 20px; text-transform: uppercase;
+}
+.mode-badge.admin { background: rgba(255,255,255,0.2); color: #fff; }
+.mode-badge.viewer { background: #FEF3C7; color: #92400E; }
+
+/* ── TIMELINE ── */
+.timeline-strip {
+  background: var(--white); border-bottom: 1px solid var(--border);
+  padding: 16px 32px; overflow-x: auto;
+}
+.timeline-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 14px; flex-wrap: wrap; gap: 8px;
+}
+.timeline-title { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+.timeline-weeks { display: flex; gap: 6px; min-width: max-content; }
+.week-chip {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 8px 14px; border-radius: var(--radius); border: 1.5px solid var(--border);
+  background: var(--white); cursor: pointer; transition: all 0.15s;
+  min-width: 100px; text-align: center; font-size: 11px;
+  position: relative;
+}
+.week-chip:hover { border-color: var(--green-light); background: var(--green-pale); }
+.week-chip.active { background: var(--green); border-color: var(--green); color: #fff; }
+.week-chip.current-week { border-color: var(--green-mid); }
+.wc-num { font-size: 9px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.6; margin-bottom: 2px; }
+.week-chip.active .wc-num { opacity: 0.7; color: #fff; }
+.wc-range { font-weight: 600; font-size: 11px; }
+.wc-month { font-size: 10px; opacity: 0.55; margin-top: 1px; }
+.week-chip.active .wc-month { opacity: 0.6; color: #fff; }
+.week-chip.today-marker::after {
+  content: 'NOW'; position: absolute; top: -8px;
+  background: var(--green-light); color: #fff;
+  font-size: 8px; font-weight: 800; padding: 1px 5px;
+  border-radius: 4px; letter-spacing: 0.06em;
+}
+
+/* ── MAIN ── */
+.main-wrap {
+  display: grid; grid-template-columns: 1fr 300px;
+  gap: 20px; padding: 20px 32px 40px;
+  max-width: 1400px; margin: 0 auto;
+}
+
+/* ── ROTA CARD ── */
+.rota-card {
+  background: var(--white); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow); overflow: hidden;
+}
+.rota-card-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px; border-bottom: 1px solid var(--border);
+  background: var(--green-pale); flex-wrap: wrap; gap: 8px;
+}
+.rota-card-title { font-size: 14px; font-weight: 700; color: var(--green); letter-spacing: -0.01em; }
+.rota-card-sub { font-size: 11px; color: var(--muted); font-weight: 500; }
+.nav-btns { display: flex; gap: 4px; align-items: center; }
+.nav-btn {
+  width: 28px; height: 28px; border-radius: 7px; border: 1px solid var(--border2);
+  background: var(--white); color: var(--muted); font-size: 13px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.12s; font-family: inherit;
+}
+.nav-btn:hover { background: var(--green-pale); color: var(--green); border-color: var(--green-mid); }
+.today-pill {
+  font-family: 'Manrope', sans-serif; font-size: 10px; font-weight: 700;
+  padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border2);
+  background: var(--white); color: var(--muted); cursor: pointer; transition: all 0.12s;
+}
+.today-pill:hover { background: var(--green-pale); color: var(--green); }
+
+/* ── TABLE ── */
+.rota-scroll { overflow-x: auto; }
+.rota-table { width: 100%; min-width: 680px; border-collapse: collapse; }
+.rota-table th {
+  padding: 8px 8px; font-size: 10px; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.07em;
+  border-bottom: 1px solid var(--border); border-right: 1px solid var(--border);
+  text-align: center; background: #FAFCFB;
+}
+.rota-table th:first-child { text-align: left; width: 110px; padding-left: 14px; }
+.rota-table th:last-child { border-right: none; }
+.rota-table th.today-col { background: var(--today-bg); color: var(--green); }
+.rota-table th.we-col { background: var(--weekend-bg); color: var(--muted2); }
+.th-date { display: block; font-size: 11px; font-weight: 600; color: var(--text); margin-bottom: 1px; text-transform: none; letter-spacing: 0; }
+.th-day { display: block; font-size: 9px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; }
+
+.rota-table td {
+  padding: 6px 6px; border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border); vertical-align: top; min-height: 60px;
+}
+.rota-table td:first-child {
+  border-right: 1px solid var(--border2); font-size: 10px; font-weight: 700;
+  color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase;
+  padding-left: 14px; background: #FAFCFB; vertical-align: middle;
+}
+.rota-table td:last-child { border-right: none; }
+.rota-table tr:last-child td { border-bottom: none; }
+.rota-table tr.carmela-row td:first-child { color: var(--green); background: var(--green-pale); }
+.rota-table tr.carmela-row { background: #F4FAF7; }
+.rota-table td.today-col { background: var(--today-bg); }
+.rota-table td.we-col { background: var(--weekend-bg); }
+.rota-table td.clickable { cursor: pointer; transition: background 0.1s; }
+.rota-table td.clickable:hover { background: var(--green-pale); }
+body.is-viewer .rota-table td.clickable { cursor: default; pointer-events: none; }
+
+/* Cell inner */
+.cell-inner { display: flex; flex-direction: column; gap: 3px; padding: 2px 0; min-height: 52px; justify-content: flex-start; }
+
+/* Member pills */
+.mpill {
+  display: flex; align-items: center; gap: 5px;
+  padding: 3px 8px; border-radius: 20px; font-size: 10px; font-weight: 700;
+  white-space: nowrap; border: 1px solid transparent; width: 100%; justify-content: center;
+  transition: all 0.12s; position: relative;
+}
+.mpill .dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+.mpill.leave {
+  background: #F5F5F5 !important; color: #AAA !important;
+  border: 1.5px dashed #DDD !important; text-decoration: line-through;
+}
+.mpill.leave .dot { background: #CCC !important; }
+
+/* Assign btn — shown in admin mode in empty slots */
+.assign-btn {
+  display: none; width: 100%; padding: 3px 6px; border-radius: 6px;
+  border: 1.5px dashed var(--border2); background: transparent;
+  font-family: 'Manrope', sans-serif; font-size: 10px; font-weight: 600;
+  color: var(--muted2); cursor: pointer; transition: all 0.15s; text-align: center;
+}
+.assign-btn:hover { border-color: var(--green-mid); color: var(--green); background: var(--green-pale); }
+body.is-admin .assign-btn { display: block; }
+
+.cover-note {
+  font-size: 9px; font-weight: 700; color: var(--cover);
+  background: var(--cover-bg); border-radius: 4px; padding: 2px 6px;
+  text-align: center; letter-spacing: 0.03em;
+}
+.suggest-note { font-size: 9px; color: var(--muted); text-align: center; line-height: 1.3; }
+.oc-label { font-size: 8px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted2); text-align: center; }
+.dash { font-size: 13px; color: var(--border2); text-align: center; width: 100%; display: block; }
+
+/* ── LEGEND + LEAVE ── */
+.legend-bar {
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+  padding: 10px 18px; border-top: 1px solid var(--border); background: #FAFCFB;
+}
+.leg-label { font-size: 9px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted2); margin-right: 4px; }
+.leg-item {
+  display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600;
+  padding: 4px 10px; border-radius: 20px; cursor: pointer;
+  border: 1px solid transparent; transition: all 0.15s; user-select: none;
+}
+.leg-item:hover { border-color: var(--border2); }
+.leg-item.week-leave { opacity: 0.38; text-decoration: line-through; }
+.leg-item .dot { width: 7px; height: 7px; border-radius: 50%; }
+body.is-viewer .leg-item { cursor: default; pointer-events: none; }
+
+.leave-bar {
+  padding: 10px 18px; border-top: 1px solid var(--border);
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+  background: var(--white); min-height: 44px;
+}
+.leave-bar-label { font-size: 9px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted2); margin-right: 4px; flex-shrink: 0; }
+.leave-tag { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; display: inline-flex; align-items: center; gap: 5px; }
+.no-leave-msg { font-size: 12px; color: var(--muted2); font-style: italic; }
+
+/* ── SIDEBAR ── */
+.sidebar { display: flex; flex-direction: column; gap: 16px; }
+
+.notes-card {
+  background: var(--white); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow); overflow: hidden;
+}
+.notes-head {
+  background: var(--green-pale); padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.notes-title { font-size: 11px; font-weight: 800; color: var(--green); letter-spacing: 0.05em; text-transform: uppercase; }
+.notes-sub { font-size: 10px; color: var(--muted); font-weight: 500; margin-top: 2px; }
+
+.note-section { border-bottom: 1px solid var(--border); }
+.note-section:last-child { border-bottom: none; }
+.note-section-head { display: flex; align-items: center; gap: 8px; padding: 10px 14px 6px; }
+.note-icon { width: 22px; height: 22px; border-radius: 6px; background: var(--green-pale); display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
+.note-section-title { font-size: 11px; font-weight: 700; color: var(--green); }
+.note-fields { padding: 0 14px 12px; display: flex; flex-direction: column; gap: 6px; }
+.note-field { display: flex; flex-direction: column; gap: 2px; }
+.note-field label { font-size: 9px; font-weight: 700; color: var(--muted2); letter-spacing: 0.07em; text-transform: uppercase; }
+
+.note-select, .note-textarea {
+  font-family: 'Manrope', sans-serif; font-size: 12px; font-weight: 500;
+  color: var(--text); background: var(--bg); border: 1px solid var(--border);
+  border-radius: 7px; padding: 6px 10px; width: 100%; outline: none;
+  transition: border-color 0.15s; appearance: none;
+}
+.note-select:focus, .note-textarea:focus { border-color: var(--green-mid); background: var(--white); }
+.note-textarea { resize: vertical; min-height: 52px; line-height: 1.5; }
+
+/* View-only: disable form inputs */
+body.is-viewer .note-select,
+body.is-viewer .note-textarea { pointer-events: none; opacity: 0.75; background: var(--bg); }
+
+/* ── ASSIGN MODAL ── */
+.modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(26,77,58,0.25); backdrop-filter: blur(3px);
+  z-index: 300; align-items: center; justify-content: center; padding: 20px;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--white); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); width: 100%; max-width: 460px;
+  max-height: 88vh; overflow-y: auto; box-shadow: var(--shadow-md);
+}
+.modal-head {
+  padding: 16px 20px 12px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--green-pale);
+}
+.modal-head h2 { font-size: 14px; font-weight: 700; color: var(--green); }
+.mclose {
+  background: none; border: none; color: var(--muted); font-size: 18px;
+  cursor: pointer; padding: 2px 6px; border-radius: 6px; transition: all 0.12s; font-family: inherit;
+}
+.mclose:hover { background: var(--border); color: var(--text); }
+.modal-body { padding: 16px 20px; }
+.mlabel { font-size: 9px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; display: block; }
+
+/* Assign person picker */
+.assign-context {
+  font-size: 12px; color: var(--muted); background: var(--bg);
+  border-radius: 8px; padding: 8px 12px; margin-bottom: 14px;
+  border-left: 3px solid var(--green-mid); line-height: 1.5;
+}
+.person-grid {
+  display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 16px;
+}
+.person-opt {
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  padding: 10px 6px; border-radius: 10px; border: 2px solid var(--border);
+  background: var(--bg); cursor: pointer; transition: all 0.15s; font-size: 11px; font-weight: 600;
+}
+.person-opt:hover { border-color: var(--green-light); background: var(--green-pale); }
+.person-opt.selected { border-color: var(--green); background: var(--green-pale2); }
+.person-opt .pavatar { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; color: #fff; }
+.person-opt .pname { color: var(--text); text-align: center; line-height: 1.2; }
+.person-opt.on-leave-opt { opacity: 0.4; }
+
+.assign-actions { display: flex; gap: 8px; }
+.abtn {
+  font-family: 'Manrope', sans-serif; flex: 1; font-size: 12px; font-weight: 700;
+  padding: 10px; border-radius: 8px; border: none; cursor: pointer; transition: all 0.15s;
+}
+.abtn.confirm { background: var(--green); color: #fff; }
+.abtn.confirm:hover { background: var(--green-mid); }
+.abtn.clear { background: var(--bg); color: var(--muted); border: 1px solid var(--border2); }
+.abtn.clear:hover { background: #FEE2E2; color: #DC2626; }
+
+/* Team / Share modals */
+.member-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.member-row {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 8px 12px;
+}
+.cswatch { width: 16px; height: 16px; border-radius: 50%; cursor: pointer; flex-shrink: 0; border: 2px solid rgba(0,0,0,0.08); transition: transform 0.1s; }
+.cswatch:hover { transform: scale(1.2); }
+.minput { flex: 1; background: transparent; border: none; font-family: 'Manrope', sans-serif; font-size: 13px; font-weight: 600; color: var(--text); outline: none; }
+.you-badge { font-size: 9px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 8px; border-radius: 5px; background: var(--green-pale); color: var(--green); }
+.del-btn { background: none; border: none; color: var(--muted2); font-size: 17px; cursor: pointer; padding: 2px 5px; border-radius: 5px; transition: all 0.12s; line-height: 1; font-family: inherit; }
+.del-btn:hover { background: #FEE2E2; color: #DC2626; }
+.add-row { display: flex; gap: 8px; margin-bottom: 16px; }
+.add-inp {
+  flex: 1; font-family: 'Manrope', sans-serif; font-size: 12px; font-weight: 500;
+  background: var(--bg); border: 1px solid var(--border2); border-radius: var(--radius);
+  padding: 8px 12px; color: var(--text); outline: none; transition: border-color 0.15s;
+}
+.add-inp:focus { border-color: var(--green-mid); background: var(--white); }
+.add-inp::placeholder { color: var(--muted2); }
+.mbtn { font-family: 'Manrope', sans-serif; font-size: 12px; font-weight: 700; padding: 8px 14px; border-radius: var(--radius); border: none; background: var(--green); color: #fff; cursor: pointer; transition: background 0.15s; }
+.mbtn:hover { background: var(--green-mid); }
+.oc-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+.oc-row:last-child { border-bottom: none; }
+.oc-day { color: var(--muted); font-weight: 600; min-width: 80px; font-size: 11px; }
+.oc-select { flex: 1; font-family: 'Manrope', sans-serif; font-size: 12px; font-weight: 500; background: var(--bg); border: 1px solid var(--border2); border-radius: 7px; padding: 5px 10px; color: var(--text); outline: none; }
+.share-box { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; font-size: 10px; color: var(--muted); word-break: break-all; margin-bottom: 12px; line-height: 1.6; }
+
+.toast { position: fixed; bottom: 24px; right: 24px; background: var(--green); color: #fff; border-radius: var(--radius); padding: 10px 18px; font-size: 12px; font-weight: 600; z-index: 999; transform: translateY(80px); opacity: 0; transition: all 0.25s; box-shadow: var(--shadow-md); }
+.toast.show { transform: translateY(0); opacity: 1; }
+
+@media (max-width: 900px) { .main-wrap { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<!-- ── LOCK SCREEN ── -->
+<div class="lock-screen" id="lock-screen">
+  <div class="lock-box">
+    <div class="lock-logo">📋</div>
+    <div class="lock-title">Team Rota</div>
+    <div class="lock-sub">How would you like to access the rota?</div>
+    <div class="lock-btns">
+      <button class="lock-btn admin" onclick="promptAdminPin()">🔐 Admin — Edit & Manage</button>
+      <button class="lock-btn viewer" onclick="enterViewer()">👁️ View only — Team access</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── PIN MODAL ── -->
+<div class="pin-modal" id="pin-modal">
+  <div class="pin-box">
+    <div class="pin-title">🔐 Admin PIN</div>
+    <div class="pin-sub">Enter your 4-digit PIN to access edit mode</div>
+    <input class="pin-inp" id="pin-input" type="password" maxlength="4" inputmode="numeric" placeholder="••••" onkeydown="if(event.key==='Enter')checkPin()">
+    <div class="pin-error" id="pin-error"></div>
+    <div class="pin-actions">
+      <button class="pin-btn cancel" onclick="closePinModal()">Cancel</button>
+      <button class="pin-btn confirm" onclick="checkPin()">Enter</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── VIEW-ONLY BANNER ── -->
+<div class="view-banner" id="view-banner">
+  <span>👁️ You are in <strong>view-only mode</strong> — contact the admin to make changes.</span>
+</div>
+
+<!-- ── TOPBAR ── -->
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-icon">📋</div>
+    <h1>Team Rota <span class="brand-sub">Apr – Dec 2026</span></h1>
+  </div>
+  <div class="topbar-btns">
+    <span class="mode-badge" id="mode-badge"></span>
+    <button class="tbtn admin-only" onclick="openModal('share-modal')">🔗 Share</button>
+    <button class="tbtn admin-only" onclick="openModal('team-modal')">⚙️ Team</button>
+    <button class="tbtn admin-only" onclick="openModal('leave-modal')">🏖 Leave</button>
+    <button class="tbtn admin-only" onclick="resetLeave()">Clear leave</button>
+    <button class="tbtn solid admin-only" id="save-btn" onclick="saveToNetlify()">💾 Save & Sync</button>
+    <button class="tbtn solid" onclick="goToday()">Today</button>
+    <button class="tbtn" onclick="switchMode()" id="switch-mode-btn" style="font-size:11px">Switch mode</button>
+  </div>
+</div>
+
+<!-- ── TIMELINE ── -->
+<div class="timeline-strip">
+  <div class="timeline-header">
+    <span class="timeline-title">Weeks until end of 2026</span>
+    <span style="font-size:11px;color:var(--muted);font-weight:500" id="weeks-remaining"></span>
+  </div>
+  <div class="timeline-weeks" id="timeline-weeks"></div>
+</div>
+
+<!-- ── MAIN ── -->
+<div class="main-wrap">
+  <div>
+    <div class="rota-card">
+      <div class="rota-card-head">
+        <div>
+          <div class="rota-card-title" id="rota-title"></div>
+          <div class="rota-card-sub" id="rota-sub"></div>
+        </div>
+        <div class="nav-btns">
+          <button class="nav-btn" onclick="changeWeek(-1)">←</button>
+          <button class="today-pill" onclick="goToday()">Today</button>
+          <button class="nav-btn" onclick="changeWeek(1)">→</button>
+        </div>
+      </div>
+      <div class="rota-scroll">
+        <table class="rota-table">
+          <thead><tr id="rota-head"></tr></thead>
+          <tbody id="rota-body"></tbody>
+        </table>
+      </div>
+      <div class="legend-bar" id="legend-bar"><span class="leg-label">Team</span></div>
+      <div class="leave-bar" style="cursor:pointer" onclick="isAdmin&&openModal('leave-modal')">
+        <span class="leave-bar-label">🏖 On leave</span>
+        <div id="leave-tags" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;flex:1;"></div>
+        <span id="leave-edit-hint" style="display:none;font-size:10px;font-weight:600;color:var(--green-mid);margin-left:8px;">+ Manage</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="notes-card">
+      <div class="notes-head">
+        <div class="notes-title">📝 Week Notes</div>
+        <div class="notes-sub" id="notes-week-label">–</div>
+      </div>
+
+      <div class="note-section">
+        <div class="note-section-head"><div class="note-icon">💬</div><div class="note-section-title">WhatsApp Monitor</div></div>
+        <div class="note-fields">
+          <div class="note-field"><label>Primary</label><select class="note-select" id="wa-primary" onchange="autoSaveNotes()"><option value="">— Select —</option></select></div>
+          <div class="note-field"><label>Back-up</label><select class="note-select" id="wa-backup" onchange="autoSaveNotes()"><option value="">— Select —</option></select></div>
+        </div>
+      </div>
+
+      <div class="note-section">
+        <div class="note-section-head"><div class="note-icon">📧</div><div class="note-section-title">Email</div></div>
+        <div class="note-fields">
+          <div class="note-field"><label>Primary</label><select class="note-select" id="email-primary" onchange="autoSaveNotes()"><option value="">— Select —</option></select></div>
+          <div class="note-field"><label>Back-up</label><select class="note-select" id="email-backup" onchange="autoSaveNotes()"><option value="">— Select —</option></select></div>
+        </div>
+      </div>
+
+      <div class="note-section">
+        <div class="note-section-head"><div class="note-icon">📅</div><div class="note-section-title">Same Day Calendar</div></div>
+        <div class="note-fields">
+          <div class="note-field"><label>Managing</label><select class="note-select" id="cal-sameday" onchange="autoSaveNotes()"><option value="">— Select —</option></select></div>
+          <div class="note-field"><label>Back-up</label><select class="note-select" id="cal-sameday-backup" onchange="autoSaveNotes()"><option value="">— Select —</option></select></div>
+        </div>
+      </div>
+
+      <div class="note-section">
+        <div class="note-section-head"><div class="note-icon">🗓️</div><div class="note-section-title">Next Day Calendar</div></div>
+        <div class="note-fields">
+          <div class="note-field"><label>Managing</label><select class="note-select" id="cal-nextday" onchange="autoSaveNotes()"><option value="">— Select —</option></select></div>
+          <div class="note-field"><label>Back-up</label><select class="note-select" id="cal-nextday-backup" onchange="autoSaveNotes()"><option value="">— Select —</option></select></div>
+        </div>
+      </div>
+
+      <div class="note-section">
+        <div class="note-section-head"><div class="note-icon">✉️</div><div class="note-section-title">Letter Chasing</div></div>
+        <div class="note-fields">
+          <div class="note-field"><label>Assigned to</label><select class="note-select" id="letter-person" onchange="autoSaveNotes()"><option value="">— Select —</option></select></div>
+          <div class="note-field"><label>Notes</label><textarea class="note-textarea" id="letter-notes" placeholder="Letter chasing notes..." oninput="autoSaveNotes()" style="min-height:42px"></textarea></div>
+        </div>
+      </div>
+
+      <div class="note-section">
+        <div class="note-section-head"><div class="note-icon">📌</div><div class="note-section-title">Additional Notes</div></div>
+        <div class="note-fields">
+          <div class="note-field"><textarea class="note-textarea" id="extra-notes" placeholder="Any extra notes for this week..." oninput="autoSaveNotes()"></textarea></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── ASSIGN MODAL ── -->
+<div class="modal-overlay" id="assign-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="assign-modal-title">Assign shift</h2>
+      <button class="mclose" onclick="closeModal('assign-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="assign-context" id="assign-context"></div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+        <span class="mlabel" style="margin-bottom:0">Select up to 2 people</span>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;" title="Apply to all weekdays this week">
+          <input type="checkbox" id="apply-whole-week" onchange="updateWeekPreview()" style="accent-color:var(--green);width:14px;height:14px;cursor:pointer;">
+          <span style="font-size:11px;font-weight:600;color:var(--green-mid);">Apply to whole week</span>
+        </label>
+      </div>
+
+      <div class="person-grid" id="person-grid"></div>
+
+      <div id="week-preview" style="display:none;margin-bottom:12px;background:var(--green-pale);border-radius:8px;padding:8px 12px;font-size:11px;color:var(--muted);line-height:1.7;border-left:3px solid var(--green-mid);"></div>
+
+      <div class="assign-actions">
+        <button class="abtn clear" onclick="clearAssignment()">✕ Clear slot</button>
+        <button class="abtn confirm" onclick="confirmAssign()">✓ Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── TEAM MODAL ── -->
+<div class="modal-overlay" id="team-modal">
+  <div class="modal">
+    <div class="modal-head"><h2>Manage team & shifts</h2><button class="mclose" onclick="closeModal('team-modal')">✕</button></div>
+    <div class="modal-body">
+      <span class="mlabel">Team members</span>
+      <div class="member-list" id="member-list"></div>
+      <div class="add-row">
+        <input class="add-inp" id="new-name" placeholder="New member name..." onkeydown="if(event.key==='Enter')addMember()">
+        <button class="mbtn" onclick="addMember()">+ Add</button>
+      </div>
+
+      <span class="mlabel" style="margin-top:4px">Shift timings</span>
+      <p style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.5">Set the time range for each shift — shown below the shift name on the rota.</p>
+      <div id="shift-timings-editor" style="display:flex;flex-direction:column;gap:8px;margin-bottom:18px;"></div>
+
+      <button class="mbtn" style="width:100%;padding:10px" onclick="saveTeam()">Save changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── LEAVE MODAL ── -->
+<div class="modal-overlay" id="leave-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>🏖 Manage leave</h2>
+      <button class="mclose" onclick="closeModal('leave-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+
+      <span class="mlabel">Add leave</span>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:12px;">
+        <div style="display:flex;flex-direction:column;gap:2px;">
+          <label style="font-size:9px;font-weight:700;color:var(--muted2);letter-spacing:0.07em;text-transform:uppercase;">Team member</label>
+          <select id="leave-member-select" class="note-select">
+            <option value="">— Select member —</option>
+          </select>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div style="display:flex;flex-direction:column;gap:2px;">
+            <label style="font-size:9px;font-weight:700;color:var(--muted2);letter-spacing:0.07em;text-transform:uppercase;">From</label>
+            <input type="date" id="leave-from" class="note-select" style="font-family:'Manrope',sans-serif;">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:2px;">
+            <label style="font-size:9px;font-weight:700;color:var(--muted2);letter-spacing:0.07em;text-transform:uppercase;">To</label>
+            <input type="date" id="leave-to" class="note-select" style="font-family:'Manrope',sans-serif;">
+          </div>
+        </div>
+        <button class="mbtn" style="width:100%;margin-top:4px;" onclick="addLeaveRange()">+ Add leave</button>
+      </div>
+
+      <span class="mlabel">Current leave entries</span>
+      <div id="leave-entries-list" style="display:flex;flex-direction:column;gap:6px;max-height:260px;overflow-y:auto;"></div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ── SHARE MODAL ── -->
+<div class="modal-overlay" id="share-modal">
+  <div class="modal">
+    <div class="modal-head"><h2>Share rota</h2><button class="mclose" onclick="closeModal('share-modal')">✕</button></div>
+    <div class="modal-body">
+      <span class="mlabel">View-only link for your team</span>
+      <div class="share-box" id="share-url"></div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6">
+        When opened via this link, the team will see the rota in <strong>view-only mode</strong> — they cannot edit shifts, leave or notes. Only you have the admin PIN.
+      </p>
+      <button class="mbtn" style="width:100%;margin-bottom:10px" onclick="copyShareLink()">📋 Copy link</button>
+      <button class="mbtn" style="width:100%;background:var(--bg);color:var(--green);border:1px solid var(--border2)" onclick="downloadFile()">⬇️ Download HTML file</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── CONFIG ─────────────────────────────────────────────
+const ADMIN_PIN = '4321'; // ← Change this to your PIN
+
+// ── COLOUR HELPERS ─────────────────────────────────────
+const COLORS = ['#D4A017','#2E9E6B','#7B61D8','#2176C7','#D4621A','#C0392B','#D4609A','#1A9BAA','#7AAA1A'];
+const COLOR_BG = c => c + '1A';
+const COLOR_DARK = {
+  '#D4A017':'#6b4d00','#2E9E6B':'#0d4d2e','#7B61D8':'#2c1a7a',
+  '#2176C7':'#093d74','#D4621A':'#692d04','#C0392B':'#5e0f08',
+  '#D4609A':'#6a1040','#1A9BAA':'#074850','#7AAA1A':'#394f00'
+};
+function initials(name){ return name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2); }
+
+// ── STATE ──────────────────────────────────────────────
+let state = {
+  members: [
+    {id:'prenita',name:'Prenita',color:'#D4A017',fixed:false},
+    {id:'ellaine',name:'Ellaine',color:'#2E9E6B',fixed:false},
+    {id:'ari',    name:'Ari',    color:'#7B61D8',fixed:false},
+    {id:'aldrin', name:'Aldrin', color:'#2176C7',fixed:false},
+    {id:'priya',  name:'Priya',  color:'#D4621A',fixed:false},
+    {id:'carmela',name:'Carmela',color:'#C0392B',fixed:false},
+  ],
+  weekOffset: 0,
+  oncall: {},
+  assignments: {},
+  shiftTimings: {
+    early:       '',
+    midMorning:  '',
+    mid:         '',
+    middleLate:  '',
+    closing:     '',
+    midnight:    '',
+  }
+};
+
+let isAdmin = false;
+
+// ── MODE ───────────────────────────────────────────────
+function enterViewer(){
+  isAdmin = false;
+  document.body.classList.remove('is-admin');
+  document.body.classList.add('is-viewer');
+  document.getElementById('lock-screen').classList.add('hidden');
+  document.getElementById('view-banner').classList.add('show');
+  document.getElementById('mode-badge').textContent = '👁 View only';
+  document.getElementById('mode-badge').className = 'mode-badge viewer';
+  render();
+}
+
+function enterAdmin(){
+  isAdmin = true;
+  document.body.classList.add('is-admin');
+  document.body.classList.remove('is-viewer');
+  document.getElementById('lock-screen').classList.add('hidden');
+  document.getElementById('view-banner').classList.remove('show');
+  document.getElementById('mode-badge').textContent = '🔐 Admin';
+  document.getElementById('mode-badge').className = 'mode-badge admin';
+  const hint = document.getElementById('leave-edit-hint');
+  if(hint) hint.style.display = 'inline';
+  render();
+}
+
+function promptAdminPin(){
+  document.getElementById('pin-modal').classList.add('open');
+  document.getElementById('pin-input').value = '';
+  document.getElementById('pin-error').textContent = '';
+  setTimeout(()=>document.getElementById('pin-input').focus(),100);
+}
+
+function closePinModal(){
+  document.getElementById('pin-modal').classList.remove('open');
+}
+
+function checkPin(){
+  const val = document.getElementById('pin-input').value.trim();
+  if(val === ADMIN_PIN){
+    closePinModal();
+    enterAdmin();
+    showToast('Welcome, Admin! ✓');
+  } else {
+    const inp = document.getElementById('pin-input');
+    inp.classList.add('error');
+    document.getElementById('pin-error').textContent = 'Incorrect PIN. Try again.';
+    setTimeout(()=>inp.classList.remove('error'),400);
+    inp.value = '';
+  }
+}
+
+function switchMode(){
+  if(isAdmin){
+    enterViewer();
+    showToast('Switched to view-only mode');
+  } else {
+    promptAdminPin();
+  }
+}
+
+// ── DATE HELPERS ───────────────────────────────────────
+function getMonday(offset=0){
+  const now=new Date(); const day=now.getDay();
+  const diff=now.getDate()-day+(day===0?-6:1);
+  const mon=new Date(now); mon.setDate(diff+offset*7); mon.setHours(0,0,0,0); return mon;
+}
+function fmtDate(d){
+  const y=d.getFullYear();
+  const m=String(d.getMonth()+1).padStart(2,'0');
+  const day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function fmtShort(d){ return d.toLocaleDateString('en-GB',{day:'numeric',month:'short'}); }
+function getWeekDates(offset){
+  const mon=getMonday(offset);
+  return Array.from({length:7},(_,i)=>{ const d=new Date(mon); d.setDate(mon.getDate()+i); return d; });
+}
+function getWeekNum(d){
+  const jan1=new Date(d.getFullYear(),0,1);
+  return Math.ceil(((d-jan1)/86400000+jan1.getDay()+1)/7);
+}
+function isWeekend(d){ return d.getDay()===0||d.getDay()===6; }
+
+// ── LEAVE ──────────────────────────────────────────────
+function getLeave(){ try{return JSON.parse(localStorage.getItem('rota_leave')||'{}')}catch{return{}} }
+function saveLeave(l){ localStorage.setItem('rota_leave',JSON.stringify(l)); }
+function saveLeaveAdmin(l){ if(isAdmin) saveLeave(l); }
+function isOnLeave(mid,ds){ const l=getLeave(); return !!(l[ds]&&l[ds].includes(mid)); }
+function toggleLeave(mid,ds){
+  if(!isAdmin) return;
+  const l=getLeave(); if(!l[ds])l[ds]=[];
+  const i=l[ds].indexOf(mid);
+  if(i>=0)l[ds].splice(i,1); else l[ds].push(mid);
+  saveLeaveAdmin(l); render();
+}
+function toggleWeekLeave(mid){
+  if(!isAdmin) return;
+  const dates=getWeekDates(state.weekOffset).map(fmtDate);
+  const l=getLeave();
+  const allOn=dates.every(d=>l[d]&&l[d].includes(mid));
+  dates.forEach(d=>{ if(!l[d])l[d]=[]; const i=l[d].indexOf(mid);
+    if(allOn){if(i>=0)l[d].splice(i,1);}else{if(i<0)l[d].push(mid);}
+  });
+  saveLeaveAdmin(l); render();
+}
+function resetLeave(){ if(!isAdmin)return; saveLeave({}); render(); showToast('Leave cleared'); }
+
+// ── LEAVE MODAL ────────────────────────────────────────
+function openLeaveModal(){
+  // populate member select
+  const sel = document.getElementById('leave-member-select');
+  sel.innerHTML = '<option value="">— Select member —</option>' +
+    state.members.map(m=>`<option value="${m.id}">${m.name}</option>`).join('');
+  // default dates to current week
+  const dates = getWeekDates(state.weekOffset);
+  document.getElementById('leave-from').value = fmtDate(dates[0]);
+  document.getElementById('leave-to').value   = fmtDate(dates[4]);
+  renderLeaveEntries();
+}
+
+function parseLocalDate(str){
+  const [y,m,d]=str.split('-').map(Number);
+  return new Date(y,m-1,d);
+}
+
+function addLeaveRange(){
+  const mid  = document.getElementById('leave-member-select').value;
+  const from = document.getElementById('leave-from').value;
+  const to   = document.getElementById('leave-to').value;
+  if(!mid)  { showToast('Please select a team member'); return; }
+  if(!from) { showToast('Please set a from date'); return; }
+  if(!to)   { showToast('Please set a to date'); return; }
+  if(from > to){ showToast('From date must be before To date'); return; }
+
+  const l = getLeave();
+  let cur = parseLocalDate(from);
+  const end = parseLocalDate(to);
+  while(cur <= end){
+    const ds = fmtDate(cur);
+    if(!l[ds]) l[ds] = [];
+    if(!l[ds].includes(mid)) l[ds].push(mid);
+    cur.setDate(cur.getDate()+1);
+  }
+  saveLeaveAdmin(l);
+  renderLeaveEntries();
+  render();
+  showToast('Leave added ✓');
+}
+
+function removeLeaveEntry(mid, fromDs, toDs){
+  const l = getLeave();
+  let cur = parseLocalDate(fromDs);
+  const end = parseLocalDate(toDs);
+  while(cur <= end){
+    const ds = fmtDate(cur);
+    if(l[ds]){ const i=l[ds].indexOf(mid); if(i>=0) l[ds].splice(i,1); }
+    cur.setDate(cur.getDate()+1);
+  }
+  saveLeaveAdmin(l);
+  renderLeaveEntries();
+  render();
+  showToast('Leave removed');
+}
+
+function renderLeaveEntries(){
+  const l = getLeave();
+  const el = document.getElementById('leave-entries-list');
+  if(!el) return;
+
+  // Group leave by member into contiguous ranges
+  const memberLeave = {};
+  state.members.forEach(m=>{ memberLeave[m.id]=[]; });
+  Object.entries(l).forEach(([ds,mids])=>{
+    mids.forEach(mid=>{ if(memberLeave[mid]) memberLeave[mid].push(ds); });
+  });
+
+  // Build ranges per member
+  const allEntries = [];
+  state.members.forEach(m=>{
+    const days = memberLeave[m.id].sort();
+    if(!days.length) return;
+    // group into contiguous ranges
+    const ranges = [];
+    let start = days[0], prev = days[0];
+    for(let i=1;i<days.length;i++){
+      const expected = parseLocalDate(prev); expected.setDate(expected.getDate()+1);
+      if(fmtDate(expected) === days[i]){ prev=days[i]; }
+      else { ranges.push({start,end:prev}); start=days[i]; prev=days[i]; }
+    }
+    ranges.push({start,end:prev});
+    ranges.forEach(r=>allEntries.push({member:m, ...r}));
+  });
+
+  if(!allEntries.length){
+    el.innerHTML='<div style="font-size:12px;color:var(--muted2);font-style:italic;padding:8px 0;">No leave entries yet.</div>';
+    return;
+  }
+
+  el.innerHTML = allEntries.map(e=>{
+    const sameDay = e.start===e.end;
+    const rangeLabel = sameDay
+      ? parseLocalDate(e.start).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})
+      : `${parseLocalDate(e.start).toLocaleDateString('en-GB',{day:'numeric',month:'short'})} – ${parseLocalDate(e.end).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}`;
+    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;
+      background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="width:8px;height:8px;border-radius:50%;background:${e.member.color};flex-shrink:0;"></div>
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--text);">${e.member.name}</div>
+          <div style="font-size:10px;color:var(--muted);">${rangeLabel}</div>
+        </div>
+      </div>
+      <button onclick="removeLeaveEntry('${e.member.id}','${e.start}','${e.end}')"
+        style="font-family:'Manrope',sans-serif;font-size:11px;font-weight:700;padding:4px 10px;
+        border-radius:6px;border:1px solid var(--border2);background:var(--white);
+        color:var(--muted);cursor:pointer;" onmouseover="this.style.background='#FEE2E2';this.style.color='#DC2626'"
+        onmouseout="this.style.background='var(--white)';this.style.color='var(--muted)'">Remove</button>
+    </div>`;
+  }).join('');
+}
+
+// ── CUSTOM ASSIGNMENTS ─────────────────────────────────
+function assignKey(shiftKey, dateStr){ return shiftKey+'__'+dateStr; }
+function getAssigned(shiftKey, dateStr){
+  return state.assignments[assignKey(shiftKey,dateStr)] || null;
+}
+function setAssigned(shiftKey, dateStr, memberIds){
+  const k=assignKey(shiftKey,dateStr);
+  if(!memberIds||!memberIds.length) delete state.assignments[k];
+  else state.assignments[k]=memberIds;
+  saveAppState();
+}
+
+// ── ROTATION — disabled, schedule starts blank ─────────
+function getRotation(weekDate){ return {}; }
+
+function getShiftMembers(shiftKey, dateStr, rot){
+  const custom = getAssigned(shiftKey, dateStr);
+  if(custom) return custom.map(id=>state.members.find(m=>m.id===id)).filter(Boolean);
+  return [];
+}
+
+function getOnCall(ds){ return null; }
+
+function getSuggest(onLeaveMids, ds){
+  const busy = new Set(onLeaveMids);
+  return state.members.filter(m=>!busy.has(m.id)&&!isOnLeave(m.id,ds)).slice(0,2);
+}
+
+// ── ASSIGN MODAL ───────────────────────────────────────
+let assignTarget = null; // {shiftKey, dateStr, shiftLabel, dateLabel}
+let pendingSelection = [];
+
+function openAssignModal(shiftKey, dateStr, shiftLabel, dateLabel){
+  if(!isAdmin) return;
+  assignTarget = {shiftKey, dateStr, shiftLabel, dateLabel};
+  const current = getAssigned(shiftKey, dateStr) || [];
+  pendingSelection = [...current];
+
+  document.getElementById('assign-modal-title').textContent = `Assign: ${shiftLabel}`;
+  document.getElementById('assign-context').innerHTML =
+    `<strong>${shiftLabel}</strong> on <strong>${dateLabel}</strong><br>
+     Select 1 or 2 people. Use <em>Apply to whole week</em> to fill Mon–Fri in one go, then edit individual days as needed.`;
+
+  // Reset whole-week toggle
+  const cb = document.getElementById('apply-whole-week');
+  cb.checked = false;
+  document.getElementById('week-preview').style.display = 'none';
+
+  renderPersonGrid();
+  openModal('assign-modal');
+}
+
+function renderPersonGrid(){
+  const grid = document.getElementById('person-grid');
+  grid.innerHTML = state.members.map(m => {
+    const onLeave = isOnLeave(m.id, assignTarget.dateStr);
+    const selected = pendingSelection.includes(m.id);
+    return `<div class="person-opt ${selected?'selected':''} ${onLeave?'on-leave-opt':''}"
+      onclick="togglePersonSelect('${m.id}')" title="${onLeave?'On leave this day':''}">
+      <div class="pavatar" style="background:${m.color}">${initials(m.name)}</div>
+      <div class="pname">${m.name}${onLeave?' 🏖':''}${m.isYou?' (you)':''}</div>
+    </div>`;
+  }).join('');
+  updateWeekPreview();
+}
+
+function togglePersonSelect(mid){
+  const i = pendingSelection.indexOf(mid);
+  if(i>=0){ pendingSelection.splice(i,1); }
+  else {
+    if(pendingSelection.length>=2){ showToast('Max 2 people per shift'); return; }
+    pendingSelection.push(mid);
+  }
+  renderPersonGrid();
+}
+
+function updateWeekPreview(){
+  const cb = document.getElementById('apply-whole-week');
+  const preview = document.getElementById('week-preview');
+  if(!cb.checked || !assignTarget){ preview.style.display='none'; return; }
+
+  const dates = getWeekDates(state.weekOffset);
+  const names = pendingSelection.map(id=>{ const m=state.members.find(x=>x.id===id); return m?m.name:'?'; });
+  const nameStr = names.length ? names.join(' + ') : '(nobody yet — select people above)';
+  const dayList = dates.map(d=>`<strong>${d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})}</strong>`).join(', ');
+
+  preview.style.display = 'block';
+  preview.innerHTML = `📅 <strong>${assignTarget.shiftLabel}</strong> will be assigned to <strong>${nameStr}</strong> for:<br>${dayList}<br>
+    <span style="color:var(--green);font-weight:600;">Individual days can still be edited after saving.</span>`;
+}
+
+function getWeekdayDates(){
+  return getWeekDates(state.weekOffset); // all 7 days including weekends
+}
+
+function confirmAssign(){
+  if(!assignTarget) return;
+  const applyWhole = document.getElementById('apply-whole-week').checked;
+
+  if(applyWhole){
+    // Apply to all weekdays
+    getWeekdayDates().forEach(d => {
+      setAssigned(assignTarget.shiftKey, fmtDate(d), [...pendingSelection]);
+    });
+    showToast(`${assignTarget.shiftLabel} assigned for whole week ✓`);
+  } else {
+    setAssigned(assignTarget.shiftKey, assignTarget.dateStr, [...pendingSelection]);
+    showToast('Shift assigned ✓');
+  }
+  closeModal('assign-modal');
+  render();
+}
+
+function clearAssignment(){
+  if(!assignTarget) return;
+  const applyWhole = document.getElementById('apply-whole-week').checked;
+  if(applyWhole){
+    getWeekdayDates().forEach(d => {
+      setAssigned(assignTarget.shiftKey, fmtDate(d), []);
+    });
+    showToast('Whole week cleared');
+  } else {
+    setAssigned(assignTarget.shiftKey, assignTarget.dateStr, []);
+    showToast('Slot cleared');
+  }
+  pendingSelection = [];
+  closeModal('assign-modal');
+  render();
+}
+
+// ── NOTES ──────────────────────────────────────────────
+function notesKey(){ return 'rota_notes_'+fmtDate(getWeekDates(state.weekOffset)[0]); }
+function getNotes(){ try{return JSON.parse(localStorage.getItem(notesKey())||'{}')}catch{return{}} }
+function saveNotes(n){ if(isAdmin) localStorage.setItem(notesKey(),JSON.stringify(n)); }
+
+// Collect ALL weeks' notes from localStorage into one object for syncing
+function getAllNotes(){
+  const all = {};
+  for(let i=0; i<localStorage.length; i++){
+    const key = localStorage.key(i);
+    if(key && key.startsWith('rota_notes_')){
+      try{ all[key] = JSON.parse(localStorage.getItem(key)); }catch{}
+    }
+  }
+  return all;
+}
+
+// Restore all weeks' notes from sync data back into localStorage
+function restoreAllNotes(allNotes){
+  if(!allNotes) return;
+  Object.entries(allNotes).forEach(([key, val])=>{
+    localStorage.setItem(key, JSON.stringify(val));
+  });
+}
+
+function autoSaveNotes(){
+  if(!isAdmin) return;
+  saveNotes({
+    waPrimary:document.getElementById('wa-primary').value,
+    waBackup:document.getElementById('wa-backup').value,
+    emailPrimary:document.getElementById('email-primary').value,
+    emailBackup:document.getElementById('email-backup').value,
+    calSameday:document.getElementById('cal-sameday').value,
+    calSamedayBackup:document.getElementById('cal-sameday-backup').value,
+    calNextday:document.getElementById('cal-nextday').value,
+    calNextdayBackup:document.getElementById('cal-nextday-backup').value,
+    letterPerson:document.getElementById('letter-person').value,
+    letterNotes:document.getElementById('letter-notes').value,
+    extraNotes:document.getElementById('extra-notes').value,
+  });
+}
+
+function loadNotes(){
+  const n=getNotes();
+  const map={
+    'wa-primary':'waPrimary','wa-backup':'waBackup',
+    'email-primary':'emailPrimary','email-backup':'emailBackup',
+    'cal-sameday':'calSameday','cal-sameday-backup':'calSamedayBackup',
+    'cal-nextday':'calNextday','cal-nextday-backup':'calNextdayBackup',
+    'letter-person':'letterPerson','letter-notes':'letterNotes',
+    'extra-notes':'extraNotes'
+  };
+  Object.entries(map).forEach(([id,key])=>{ const el=document.getElementById(id); if(el)el.value=n[key]||''; });
+}
+
+function populateSelects(){
+  const ids=['wa-primary','wa-backup','email-primary','email-backup',
+             'cal-sameday','cal-sameday-backup','cal-nextday','cal-nextday-backup','letter-person'];
+  const opts='<option value="">— Select —</option>'+
+    state.members.map(m=>`<option value="${m.id}">${m.name}</option>`).join('');
+  ids.forEach(id=>{ const el=document.getElementById(id); if(el)el.innerHTML=opts; });
+}
+
+// ── APP STATE PERSISTENCE ──────────────────────────────
+function saveAppState(){
+  localStorage.setItem('rota_state', JSON.stringify({
+    members: state.members,
+    oncall: state.oncall,
+    assignments: state.assignments,
+    shiftTimings: state.shiftTimings
+  }));
+}
+function loadAppState(){
+  try{
+    const s=JSON.parse(localStorage.getItem('rota_state')||'{}');
+    if(s.members) state.members=s.members;
+    if(s.oncall) state.oncall=s.oncall;
+    if(s.assignments) state.assignments=s.assignments;
+    if(s.shiftTimings) state.shiftTimings=Object.assign({},state.shiftTimings,s.shiftTimings);
+  }catch(e){}
+}
+
+// ── TIMELINE ───────────────────────────────────────────
+function buildTimeline(){
+  const el=document.getElementById('timeline-weeks');
+  const rem=document.getElementById('weeks-remaining');
+  const dec31=new Date(2026,11,31);
+  const weeks=[]; let offset=0;
+  while(true){
+    const mon=getMonday(offset);
+    if(mon>dec31) break;
+    weeks.push(offset); offset++;
+    if(offset>45) break;
+  }
+  rem.textContent=`${weeks.length} week${weeks.length!==1?'s':''} remaining`;
+  el.innerHTML=weeks.map(off=>{
+    const dates=getWeekDates(off);
+    const mon=dates[0],fri=dates[4];
+    const isActive=off===state.weekOffset;
+    const isCurrent=off===0;
+    const ml=mon.toLocaleDateString('en-GB',{month:'short'});
+    const el2=fri.toLocaleDateString('en-GB',{month:'short'});
+    return `<div class="week-chip ${isActive?'active':''} ${isCurrent&&!isActive?'current-week':''} ${isCurrent?'today-marker':''}"
+      onclick="jumpToWeek(${off})">
+      <span class="wc-num">W${getWeekNum(mon)}</span>
+      <span class="wc-range">${fmtShort(mon)} – ${fmtShort(fri)}</span>
+      <span class="wc-month">${ml===el2?ml:ml+'/'+el2}</span>
+    </div>`;
+  }).join('');
+}
+
+function jumpToWeek(off){ state.weekOffset=off; render(); }
+
+// ── RENDER ─────────────────────────────────────────────
+const SHIFT_KEYS=[
+  {key:'early',      defaultLabel:'Early'},
+  {key:'midMorning', defaultLabel:'Mid morning'},
+  {key:'mid',        defaultLabel:'Mid'},
+  {key:'middleLate', defaultLabel:'Middle late'},
+  {key:'closing',    defaultLabel:'Closing'},
+  {key:'midnight',   defaultLabel:'Midnight'},
+];
+function getShifts(){
+  return SHIFT_KEYS.map(s=>({
+    key: s.key,
+    label: s.defaultLabel,
+    timing: state.shiftTimings[s.key] || ''
+  }));
+}
+const DAY_NAMES=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+function render(){
+  const dates=getWeekDates(state.weekOffset);
+  const mon=dates[0];
+  const rot=getRotation(mon);
+  const todayStr=fmtDate(new Date());
+  const SHIFTS=getShifts();
+
+  document.getElementById('rota-title').textContent=`${fmtShort(dates[0])} – ${fmtShort(dates[6])}`;
+  document.getElementById('rota-sub').textContent=`Week ${getWeekNum(mon)}`;
+  document.getElementById('notes-week-label').textContent=`${fmtShort(dates[0])} – ${fmtShort(dates[4])}`;
+
+  buildTimeline();
+
+  // Head
+  const head=document.getElementById('rota-head');
+  head.innerHTML=`<th style="text-align:left;padding-left:14px">Shift</th>`+
+    dates.map((d,i)=>{
+      const ds=fmtDate(d),isToday=ds===todayStr,isWE=isWeekend(d);
+      return `<th class="${isToday?'today-col':''} ${isWE?'we-col':''}">
+        <span class="th-date">${d.getDate()} ${d.toLocaleDateString('en-GB',{month:'short'})}</span>
+        <span class="th-day">${DAY_NAMES[i]}</span>
+      </th>`;
+    }).join('');
+
+  // Body
+  const body=document.getElementById('rota-body');
+  body.innerHTML=SHIFTS.map(shift=>{
+    const cells=dates.map((d,i)=>{
+      const ds=fmtDate(d),isToday=ds===todayStr,isWE=isWeekend(d);
+      const dateLabel=`${DAY_NAMES[i]} ${fmtShort(d)}`;
+      const members = getShiftMembers(shift.key, ds, rot);
+      const anyOnLeave = members.some(m=>isOnLeave(m.id,ds));
+      const leaveMids = members.filter(m=>isOnLeave(m.id,ds)).map(m=>m.id);
+      const sug = anyOnLeave ? getSuggest(leaveMids, ds) : [];
+      const assignClick = `openAssignModal('${shift.key}','${ds}','${shift.label}','${dateLabel}')`;
+
+      return `<td class="${isToday?'today-col':''} ${isWE?'we-col':''} ${isAdmin?'clickable':''}" onclick="${isAdmin?assignClick:''}">
+        <div class="cell-inner" style="align-items:center">
+          ${members.length===0?`<span class="dash">—</span>`:''}
+          ${members.map(m=>{
+            const onLeave=isOnLeave(m.id,ds);
+            return `<div class="mpill ${onLeave?'leave':''}" style="${!onLeave?`background:${COLOR_BG(m.color)};color:${COLOR_DARK[m.color]||'#333'};border-color:${m.color}40`:''}">
+              <div class="dot" style="background:${m.color}"></div>${m.name}
+            </div>`;
+          }).join('')}
+          ${anyOnLeave?`<div class="cover-note">⚠ Cover needed</div>`:''}
+          ${anyOnLeave&&sug.length?`<div class="suggest-note">→ ${sug.map(m=>`<span style="color:${COLOR_DARK[m.color]||m.color};font-weight:700">${m.name}</span>`).join(', ')}</div>`:''}
+        </div></td>`;
+    }).join('');
+
+    const timingStr = shift.timing ? `<span style="font-size:9px;font-weight:500;color:var(--muted2);display:block;margin-top:1px;letter-spacing:0;">${shift.timing}</span>` : '';
+    return `<tr>
+      <td style="line-height:1.3">${shift.label}${timingStr}</td>${cells}</tr>`;
+  }).join('');
+
+  // Legend
+  const leg=document.getElementById('legend-bar');
+  const dateStrs=dates.map(fmtDate);
+  leg.innerHTML=`<span class="leg-label">Team</span>`+
+    state.members.map(m=>{
+      const wkLeave=dateStrs.every(d=>isOnLeave(m.id,d));
+      return `<div class="leg-item ${wkLeave?'week-leave':''}" onclick="toggleWeekLeave('${m.id}')"
+        style="background:${COLOR_BG(m.color)}">
+        <div class="dot" style="background:${m.color}"></div>
+        ${m.name}
+      </div>`;
+    }).join('');
+
+  // Leave summary
+  const leaveEl=document.getElementById('leave-tags');
+  const shortDays=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const tags=[];
+  state.members.forEach(m=>{
+    const days=dateStrs.filter(d=>isOnLeave(m.id,d));
+    if(!days.length) return;
+    const labels=days.map(d=>shortDays[dateStrs.indexOf(d)]).join(', ');
+    tags.push(`<div class="leave-tag" style="background:${COLOR_BG(m.color)};color:${COLOR_DARK[m.color]||'#555'}">
+      <div style="width:6px;height:6px;border-radius:50%;background:${m.color}"></div>
+      ${m.name}: ${labels}</div>`);
+  });
+  leaveEl.innerHTML=tags.length?tags.join(''):'<span class="no-leave-msg">No leave marked this week</span>';
+
+  populateSelects();
+  loadNotes();
+}
+
+// ── NAV ────────────────────────────────────────────────
+function changeWeek(dir){ state.weekOffset+=dir; render(); }
+function goToday(){ state.weekOffset=0; render(); }
+
+// ── MODALS ─────────────────────────────────────────────
+function openModal(id){
+  document.getElementById(id).classList.add('open');
+  if(id==='team-modal') renderTeamModal();
+  if(id==='share-modal') renderShareModal();
+  if(id==='leave-modal') openLeaveModal();
+}
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(el=>{
+  el.addEventListener('click',e=>{ if(e.target===el) el.classList.remove('open'); });
+});
+
+function renderTeamModal(){
+  document.getElementById('member-list').innerHTML=state.members.map((m,i)=>`
+    <div class="member-row">
+      <div class="cswatch" style="background:${m.color}" onclick="cycleColor(${i})"></div>
+      <input class="minput" value="${m.name}" onchange="state.members[${i}].name=this.value">
+      ${!m.fixed?`<button class="del-btn" onclick="removeMember(${i})">✕</button>`:''}
+    </div>`).join('');
+
+  // Shift timings editor
+  const ed = document.getElementById('shift-timings-editor');
+  ed.innerHTML = SHIFT_KEYS.map(s=>`
+    <div style="display:flex;align-items:center;gap:10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;">
+      <span style="font-size:11px;font-weight:700;color:var(--green);min-width:90px;">${s.defaultLabel}</span>
+      <input type="text"
+        id="timing-${s.key}"
+        value="${state.shiftTimings[s.key]||''}"
+        placeholder="e.g. 09:00 – 13:00"
+        style="flex:1;font-family:'Manrope',sans-serif;font-size:12px;font-weight:500;color:var(--text);background:var(--white);border:1px solid var(--border2);border-radius:7px;padding:5px 10px;outline:none;"
+        onfocus="this.style.borderColor='var(--green-mid)'"
+        onblur="this.style.borderColor='var(--border2)'"
+      >
+    </div>`).join('');
+}
+
+function cycleColor(i){ const cur=COLORS.indexOf(state.members[i].color); state.members[i].color=COLORS[(cur+1)%COLORS.length]; renderTeamModal(); }
+function removeMember(i){ state.members.splice(i,1); renderTeamModal(); }
+function addMember(){
+  const inp=document.getElementById('new-name'),name=inp.value.trim(); if(!name)return;
+  const used=state.members.map(m=>m.color);
+  state.members.push({id:'m_'+Date.now(),name,color:COLORS.find(c=>!used.includes(c))||COLORS[0],fixed:false});
+  inp.value=''; renderTeamModal();
+}
+function saveTeam(){
+  // Read shift timings from inputs
+  SHIFT_KEYS.forEach(s=>{
+    const el=document.getElementById('timing-'+s.key);
+    if(el) state.shiftTimings[s.key]=el.value.trim();
+  });
+  saveAppState(); closeModal('team-modal'); render(); showToast('Saved ✓');
+}
+
+// ── SHARE ──────────────────────────────────────────────
+function encodeState(){
+  return btoa(encodeURIComponent(JSON.stringify({
+    members:state.members.map(m=>({id:m.id,name:m.name,color:m.color,fixed:m.fixed})),
+    oncall:state.oncall,
+    assignments:state.assignments,
+    shiftTimings:state.shiftTimings
+  })));
+}
+function decodeState(enc){
+  try{
+    const d=JSON.parse(decodeURIComponent(atob(enc)));
+    if(d.members)state.members=d.members;
+    if(d.oncall)state.oncall=d.oncall;
+    if(d.assignments)state.assignments=d.assignments;
+    if(d.shiftTimings)state.shiftTimings=Object.assign({},state.shiftTimings,d.shiftTimings);
+  }catch(e){console.warn(e);}
+}
+function renderShareModal(){
+  const url=location.href.split('?')[0]+'?rota='+encodeState()+'&mode=view';
+  document.getElementById('share-url').textContent=url;
+}
+function copyShareLink(){
+  const url=location.href.split('?')[0]+'?rota='+encodeState()+'&mode=view';
+  navigator.clipboard.writeText(url)
+    .then(()=>showToast('Link copied! 🔗'))
+    .catch(()=>{ const t=document.createElement('textarea'); t.value=url; document.body.appendChild(t); t.select(); document.execCommand('copy'); document.body.removeChild(t); showToast('Link copied! 🔗'); });
+}
+function downloadFile(){
+  const blob=new Blob([document.documentElement.outerHTML],{type:'text/html'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='team_rota.html'; a.click();
+  showToast('Downloaded! ⬇️');
+}
+
+// ── GITHUB GIST SYNC ───────────────────────────────────
+const GIST_ID    = 'cb07d4e7d8aeb1975740aa615538ba0c';
+const GIST_TOKEN = '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';
+const GIST_FILE  = 'rota.json';
+const GIST_URL   = `https://api.github.com/gists/${GIST_ID}`;
+
+async function saveToNetlify(){
+  const saveBtn = document.getElementById('save-btn');
+  if(saveBtn){ saveBtn.textContent='Saving…'; saveBtn.disabled=true; }
+  try{
+    const payload = JSON.stringify({
+      members:     state.members,
+      oncall:      state.oncall,
+      assignments: state.assignments,
+      shiftTimings:state.shiftTimings,
+      leave:       getLeave(),
+      allNotes:    getAllNotes(),
+      savedAt:     new Date().toISOString()
+    });
+    const res = await fetch(GIST_URL, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${GIST_TOKEN}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/vnd.github+json'
+      },
+      body: JSON.stringify({ files: { [GIST_FILE]: { content: payload } } })
+    });
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    showToast('✅ Saved & synced to team!');
+  } catch(e){
+    console.error('Gist save failed:', e);
+    showToast('⚠️ Sync failed — check connection');
+  } finally {
+    if(saveBtn){ saveBtn.textContent='💾 Save & Sync'; saveBtn.disabled=false; }
+  }
+}
+
+async function loadFromNetlify(){
+  try{
+    const res = await fetch(GIST_URL, {
+      headers: {
+        'Authorization': `Bearer ${GIST_TOKEN}`,
+        'Accept': 'application/vnd.github+json'
+      }
+    });
+    if(!res.ok) return false;
+    const gist = await res.json();
+    const content = gist.files?.[GIST_FILE]?.content;
+    if(!content) return false;
+    const d = JSON.parse(content);
+    if(!d || !d.members) return false;
+    if(d.members)      state.members      = d.members;
+    if(d.oncall)       state.oncall       = d.oncall;
+    if(d.assignments)  state.assignments  = d.assignments;
+    if(d.shiftTimings) state.shiftTimings = Object.assign({}, state.shiftTimings, d.shiftTimings);
+    if(d.leave)        saveLeave(d.leave);
+    if(d.allNotes)     restoreAllNotes(d.allNotes);
+    return true;
+  } catch(e){
+    console.warn('Could not load from Gist:', e);
+    return false;
+  }
+}
+
+// ── TOAST ──────────────────────────────────────────────
+function showToast(msg){
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2400);
+}
+
+// ── INIT ───────────────────────────────────────────────
+async function init(){
+  localStorage.removeItem('rota_leave');
+  loadAppState();
+  const params=new URLSearchParams(location.search);
+  if(params.has('rota')) decodeState(params.get('rota'));
+
+  // Show loading state while fetching from Netlify
+  document.getElementById('lock-screen').classList.add('hidden');
+  const loading = document.createElement('div');
+  loading.id = 'netlify-loader';
+  loading.style.cssText = 'position:fixed;inset:0;background:var(--green);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9998;gap:14px;';
+  loading.innerHTML = `<div style="font-size:32px;">📋</div>
+    <div style="color:#fff;font-family:Manrope,sans-serif;font-size:15px;font-weight:700;">Loading rota…</div>
+    <div style="color:rgba(255,255,255,0.5);font-family:Manrope,sans-serif;font-size:12px;">Syncing latest schedule</div>`;
+  document.body.appendChild(loading);
+
+  await loadFromNetlify();
+  loading.remove();
+
+  if(params.get('mode')==='view'){
+    enterViewer();
+  } else {
+    document.getElementById('lock-screen').classList.remove('hidden');
+  }
+}
+
+init();
+</script>
+</body>
+</html>
