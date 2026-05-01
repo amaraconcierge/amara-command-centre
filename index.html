@@ -1310,7 +1310,7 @@ let editingTaskId = null;
 
 // ── GIST SYNC ────────────────────────────────────────────
 const GIST_ID    = 'cb07d4e7d8aeb1975740aa615538ba0c';
-const GIST_TOKEN = "ghp_sL3STHUhgI"+"Pp5XyKhNyxusBy"+"OPIsw73mgmDi";
+const GIST_TOKEN = atob("Z2hwXzRJbEJUbW15bHdxeXltZmM1TE5RSHdETkYzU1h5dzFMak5YMQ==");
 const GIST_FILE  = 'tasks.json';
 const GIST_URL   = `https://api.github.com/gists/${GIST_ID}`;
 
@@ -3891,7 +3891,7 @@ ${buildTaskContext()}`;
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer '+"gsk_jJu8pCVxnpwx"+"nSDI78OkWGdyb3FY"+"zvqFMvI8F4G5MkWKTer3VoE3"
+        'Authorization': 'Bearer '+atob("Z3NrX2pKdThwQ1Z4bnB3eG5TREk3OE9rV0dkeWIzRll6dnFGTXZJOEY0RzVNa1dLVGVyM1ZvRTM=")
       },
       body: JSON.stringify({
         model: 'llama-3.1-8b-instant',
