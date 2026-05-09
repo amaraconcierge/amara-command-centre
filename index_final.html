@@ -5965,7 +5965,13 @@ function toggleAI(){
 }
 
 function aiWelcome(){
-  addAIMessage('bot', `Hi! I'm your AI assistant for Command Centre.\n\n🧭 **Navigate** — *"where do I add a medication?"*\n✨ **Grammar** — type a message then press ✨ to check it\n🔍 **Search** — tasks, patients, medications, directory, HR\n\nWhat do you need?`);
+  const hasKey = !!getAnthropicKey();
+  if(hasKey){
+    addAIMessage('bot', `Hi! I'm your AI assistant — ready to help.\n\n🧭 **Navigate** — *"where do I add a medication?"*\n✨ **Grammar** — type a message then press ✨\n🔍 **Search** — tasks, patients, directory, HR\n\nWhat do you need?`);
+  } else {
+    addAIMessage('bot', `Hi! I need your Anthropic API key to get started — it only takes a moment:`);
+    setTimeout(showAPIKeySetup, 200);
+  }
 }
 
 function addAIMessage(role, text){
@@ -6078,7 +6084,7 @@ function saveAPIKey(){
   if(errEl) errEl.style.display='none';
 
   // Test the key with a tiny real call
-  fetch('https://blue-tooth-a1bd.cm-2ff.workers.dev',{
+  fetch('https://amaraconcierge--48ddc7544bfc11f18794ee650bb23af1.web.val.run',{
     method:'POST',
     headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01'},
     body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:10,system:'Reply OK',messages:[{role:'user',content:'ping'}]})
@@ -6107,8 +6113,9 @@ function clearAPIKey(){
 }
 
 async function callClaude(systemPrompt, messages, maxTokens){
-  const WORKER = 'https://blue-tooth-a1bd.cm-2ff.workers.dev';
-  const key = getAnthropicKey() || 'worker-managed';
+  const WORKER = 'https://amaraconcierge--48ddc7544bfc11f18794ee650bb23af1.web.val.run';
+  const key = getAnthropicKey();
+  if(!key){ showAPIKeySetup(); throw new Error('NO_KEY'); }
 
   let r;
   try{
@@ -6132,7 +6139,7 @@ async function callClaude(systemPrompt, messages, maxTokens){
   }
 
   console.log('[AI] Worker status:', r.status);
-  if(r.status === 401) throw new Error('INVALID_KEY');
+  if(r.status === 401){ setAnthropicKey(''); showAPIKeySetup(); throw new Error('INVALID_KEY'); }
   if(!r.ok) {
     const txt = await r.text().catch(()=>'');
     console.error('[AI] Error:', txt.slice(0,300));
@@ -6231,50 +6238,6 @@ async function fixGrammarAI(){
     aiTyping=false;
     document.getElementById('ai-send-btn').disabled=false;
   }
-}
-
-function showCORSHelp(){
-  return `**Browser security is blocking the AI connection.**
-
-This is a CORS restriction — browsers prevent HTML files from calling external APIs directly. Here are **3 ways to fix it**, easiest first:
-
----
-
-**Option 1 — Open as a local server (easiest, 1 min)**
-Instead of opening the file directly, run it via a local server:
-\`\`\`
-# If you have Node.js:
-npx serve .
-# Then open http://localhost:3000
-
-# Or Python:
-python3 -m http.server 8080
-# Then open http://localhost:8080
-\`\`\`
-This bypasses the CORS restriction completely.
-
----
-
-**Option 2 — Use a browser with CORS disabled (dev mode)**
-Chrome with CORS disabled:
-\`\`\`
-chrome --disable-web-security --user-data-dir=/tmp/chrome-dev
-\`\`\`
-*Only use for this app — don't browse the web in this mode.*
-
----
-
-**Option 3 — Host the file online**
-Upload index_final.html to any static host:
-- **Netlify Drop** — drag the file to [app.netlify.com/drop](https://app.netlify.com/drop)
-- **GitHub Pages** — push to a repo and enable Pages
-- **Cloudflare Pages** — free, instant deploy
-
-Once hosted (not a \`file://\` URL), the AI will work fully.
-
----
-
-*Your API key is saved. The AI will connect automatically once the CORS issue is resolved.*`;
 }
 
 function localAISearch(query){
