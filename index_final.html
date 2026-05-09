@@ -5965,13 +5965,7 @@ function toggleAI(){
 }
 
 function aiWelcome(){
-  const hasKey = !!getAnthropicKey();
-  if(hasKey){
-    addAIMessage('bot', `Hi! I'm your AI assistant — connected and ready.\n\n🧭 **Navigate** — ask *"where do I add a medication?"*\n✨ **Grammar** — type a message then press ✨ to check it\n🔍 **Search** — tasks, patients, medications, directory, HR\n\nWhat do you need?`);
-  } else {
-    addAIMessage('bot', `Hi! To enable AI features, I need your Anthropic API key. It takes 30 seconds to set up:`);
-    setTimeout(showAPIKeySetup, 300);
-  }
+  addAIMessage('bot', `Hi! I'm your AI assistant for Command Centre.\n\n🧭 **Navigate** — *"where do I add a medication?"*\n✨ **Grammar** — type a message then press ✨ to check it\n🔍 **Search** — tasks, patients, medications, directory, HR\n\nWhat do you need?`);
 }
 
 function addAIMessage(role, text){
@@ -6113,38 +6107,39 @@ function clearAPIKey(){
 }
 
 async function callClaude(systemPrompt, messages, maxTokens){
-  const key=getAnthropicKey();
-  if(!key){ showAPIKeySetup(); throw new Error('NO_KEY'); }
+  const WORKER = 'https://blue-tooth-a1bd.cm-2ff.workers.dev';
+  const key = getAnthropicKey() || 'worker-managed';
 
-  // Route through your Cloudflare Worker proxy (bypasses CORS)
-  const PROXY = 'https://blue-tooth-a1bd.cm-2ff.workers.dev';
-
-  let r, lastErr;
+  let r;
   try{
-    r = await fetch(PROXY,{
-      method:'POST',
-      headers:{
-        'Content-Type':'application/json',
-        'x-api-key':key,
-        'anthropic-version':'2023-06-01',
+    r = await fetch(WORKER, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
       },
-      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:maxTokens||800,system:systemPrompt,messages})
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: maxTokens || 800,
+        system: systemPrompt,
+        messages
+      })
     });
-  }catch(err){
-    lastErr=err;
-    console.error('[Command Centre AI] Worker proxy failed:', err.message);
+  } catch(err) {
+    console.error('[AI] Worker call failed:', err.message);
+    throw new Error('WORKER_FAILED');
   }
 
-  if(!r){ console.error('[Command Centre AI] All proxies failed:', lastErr); throw new Error('CORS_BLOCKED'); }
-  if(r.status===401){ setAnthropicKey(''); showAPIKeySetup(); throw new Error('INVALID_KEY'); }
-  if(r.status===403){ throw new Error('CORS_BLOCKED'); }
-  if(!r.ok){
-    const body=await r.text().catch(()=>'');
-    console.error('[Command Centre AI] API error:', r.status, body.slice(0,200));
-    throw new Error('API_ERROR_'+r.status);
+  console.log('[AI] Worker status:', r.status);
+  if(r.status === 401) throw new Error('INVALID_KEY');
+  if(!r.ok) {
+    const txt = await r.text().catch(()=>'');
+    console.error('[AI] Error:', txt.slice(0,300));
+    throw new Error('API_ERROR_' + r.status);
   }
-  const d=await r.json();
-  return d.content?.[0]?.text||'';
+  const d = await r.json();
+  return d.content?.[0]?.text || '';
 }
 
 async function sendAI(){
@@ -6187,12 +6182,12 @@ ${buildTaskContext()}`;
     aiHistory.push({role:'assistant',content:reply});
   }catch(e){
     removeTypingIndicator();
-    if(e.message==='NO_KEY'||e.message==='INVALID_KEY') return;
-    if(e.message==='CORS_BLOCKED'){
-      addAIMessage('bot', showCORSHelp());
+    console.error('[AI] sendAI error:', e.message);
+    if(e.message==='INVALID_KEY'){
+      addAIMessage('bot','❌ Invalid API key — click 🔑 to update it.');
       return;
     }
-    addAIMessage('bot',localAISearch(msg)+'\n\n*AI unavailable — local search only.*');
+    addAIMessage('bot', localAISearch(msg)+'\n\n*⚠️ AI offline ('+e.message+') — showing local search results.*');
   }finally{
     aiTyping=false;
     document.getElementById('ai-send-btn').disabled=false;
@@ -6226,15 +6221,11 @@ async function fixGrammarAI(){
     if(m&&m[1]){inp.value=m[1].trim();inp.style.background='#F0FDF4';inp.style.borderColor='#16A34A';setTimeout(()=>{inp.style.background='';inp.style.borderColor='';},2000);}
   }catch(e){
     removeTypingIndicator();
-    if(e.message==='NO_KEY'||e.message==='INVALID_KEY') return;
-    if(e.message==='CORS_BLOCKED'){
-      addAIMessage('bot', showCORSHelp());
-    } else {
-      let f=text.trim().charAt(0).toUpperCase()+text.trim().slice(1);
-      if(!/[.!?]$/.test(f)) f+='.';
-      inp.value=f;
-      addAIMessage('bot','**Basic fix:** '+f+'\n\n*AI unavailable.*');
-    }
+    console.error('[AI] grammar error:', e.message);
+    let f=text.trim().charAt(0).toUpperCase()+text.trim().slice(1);
+    if(!/[.!?]$/.test(f)) f+='.';
+    inp.value=f;
+    addAIMessage('bot','**Basic fix:** '+f+'\n\n*⚠️ AI offline. Error: '+e.message+'*');
   }finally{
     if(btn){btn.textContent='✨';btn.disabled=false;}
     aiTyping=false;
