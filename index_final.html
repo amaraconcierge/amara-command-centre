@@ -6073,12 +6073,37 @@ function showAPIKeySetup(){
 function saveAPIKey(){
   const inp=document.getElementById('ai-key-inp');
   const errEl=document.getElementById('ai-key-err');
+  const btn=inp?.parentElement?.querySelector('button');
   const key=(inp?.value||'').trim();
   if(!key){ if(errEl){errEl.textContent='Please paste your API key';errEl.style.display='block';} return; }
+  if(!key.startsWith('sk-ant')){ if(errEl){errEl.textContent='Key should start with sk-ant…';errEl.style.display='block';} return; }
+
+  // Save immediately and test in background
   setAnthropicKey(key);
-  document.getElementById('ai-key-setup')?.remove();
-  showToast('API key saved ✓ — AI is now ready!');
-  addAIMessage('bot','Connected! I can now help you navigate the app, search your data, and fix your grammar. What would you like to do?');
+  if(btn) btn.textContent='Testing…';
+  if(errEl) errEl.style.display='none';
+
+  // Test the key with a tiny real call
+  fetch('https://blue-tooth-a1bd.cm-2ff.workers.dev',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01'},
+    body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:10,system:'Reply OK',messages:[{role:'user',content:'ping'}]})
+  }).then(r=>{
+    document.getElementById('ai-key-setup')?.remove();
+    if(r.status===401){
+      setAnthropicKey('');
+      if(errEl){errEl.textContent='Invalid key — please check and try again';errEl.style.display='block';}
+      if(btn) btn.textContent='Save & connect';
+      return;
+    }
+    showToast('AI connected ✓');
+    addAIMessage('bot','✅ Connected! Ask me anything:\n\n🧭 **Navigate** — "where do I add a medication?"\n✨ **Grammar** — type a message then press ✨\n🔍 **Search** — tasks, patients, directory, HR\n\nWhat do you need?');
+  }).catch(()=>{
+    // CORS or network error — key is saved, will work on next real call
+    document.getElementById('ai-key-setup')?.remove();
+    showToast('Key saved — testing on first use');
+    addAIMessage('bot','Key saved. Ask me something and I\'ll try to connect. If it fails, check the 🔑 button.');
+  });
 }
 
 function clearAPIKey(){
@@ -6091,26 +6116,33 @@ async function callClaude(systemPrompt, messages, maxTokens){
   const key=getAnthropicKey();
   if(!key){ showAPIKeySetup(); throw new Error('NO_KEY'); }
 
-  // Try direct call first (works in some environments)
-  let r;
+  // Route through your Cloudflare Worker proxy (bypasses CORS)
+  const PROXY = 'https://blue-tooth-a1bd.cm-2ff.workers.dev';
+
+  let r, lastErr;
   try{
-    r=await fetch('https://api.anthropic.com/v1/messages',{
+    r = await fetch(PROXY,{
       method:'POST',
       headers:{
         'Content-Type':'application/json',
         'x-api-key':key,
         'anthropic-version':'2023-06-01',
-        'anthropic-dangerous-direct-browser-ipc':'true'
       },
       body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:maxTokens||800,system:systemPrompt,messages})
     });
-  }catch(corsErr){
-    // CORS blocked — throw a clear error for the UI to handle
-    throw new Error('CORS_BLOCKED');
+  }catch(err){
+    lastErr=err;
+    console.error('[Command Centre AI] Worker proxy failed:', err.message);
   }
 
+  if(!r){ console.error('[Command Centre AI] All proxies failed:', lastErr); throw new Error('CORS_BLOCKED'); }
   if(r.status===401){ setAnthropicKey(''); showAPIKeySetup(); throw new Error('INVALID_KEY'); }
-  if(!r.ok) throw new Error('API_ERROR_'+r.status);
+  if(r.status===403){ throw new Error('CORS_BLOCKED'); }
+  if(!r.ok){
+    const body=await r.text().catch(()=>'');
+    console.error('[Command Centre AI] API error:', r.status, body.slice(0,200));
+    throw new Error('API_ERROR_'+r.status);
+  }
   const d=await r.json();
   return d.content?.[0]?.text||'';
 }
