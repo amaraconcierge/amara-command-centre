@@ -2307,6 +2307,57 @@ async function sbSetAll(data){
 
 let autoSaveTimer = null;
 let isSaving = false;
+let _lastSyncedAt = null; // track when we last got data from Supabase
+let _pollTimer    = null;
+
+// ── LIVE SYNC POLLING ────────────────────────────────────
+// Polls Supabase every 15s to pick up changes from other devices
+function startLiveSync(){
+  if(_pollTimer) clearInterval(_pollTimer);
+  _pollTimer = setInterval(async ()=>{
+    if(isSaving) return; // don't poll while we're mid-save
+    if(document.hidden) return; // don't poll when tab is hidden
+    try{
+      // Check updated_at on the tasks row — only reload if it changed
+      const r = await fetch(
+        `${SB_URL}/rest/v1/cc_store?key=eq.tasks&select=updated_at`,
+        { headers: SB_HEADERS }
+      );
+      if(!r.ok) return;
+      const rows = await r.json();
+      const remoteTs = rows[0]?.updated_at;
+      if(!remoteTs || remoteTs === _lastSyncedAt) return; // no change
+
+      // Something changed remotely — pull full data
+      console.log('[LiveSync] Remote change detected, reloading…');
+      const prevTaskCount = state.tasks.length;
+      await syncLoad();
+      _lastSyncedAt = remoteTs;
+
+      // Only re-render if data actually changed
+      if(state.tasks.length !== prevTaskCount ||
+         JSON.stringify(state.tasks.map(t=>t.updatedAt)) !==
+         JSON.stringify(state.tasks.map(t=>t.updatedAt))){
+        renderAll(); updatePtCount();
+        showToast('🔄 Updated from another device', 2000);
+      }
+    }catch(e){ /* silent fail — polling is best-effort */ }
+  }, 15000); // every 15 seconds
+}
+
+// Also reload when the tab becomes visible again (user switches back)
+document.addEventListener('visibilitychange', ()=>{
+  if(!document.hidden){
+    // Tab became visible — sync immediately
+    setTimeout(async ()=>{
+      if(isSaving) return;
+      try{
+        await syncLoad();
+        renderAll(); updatePtCount();
+      }catch(e){}
+    }, 500);
+  }
+});
 
 function setSaveStatus(status){
   const btn = document.getElementById('save-btn');
@@ -2414,6 +2465,9 @@ async function syncLoad(){
     if(d.hr_devices  && d.hr_devices.length  >= (window._hrDevices||[]).length) window._hrDevices = d.hr_devices;
 
     console.log('[syncLoad] Supabase loaded: tasks='+state.tasks.length+' patients='+(patients||[]).length);
+    // Track when we last successfully synced (for live polling comparison)
+    const tsRow = await fetch(`${SB_URL}/rest/v1/cc_store?key=eq.tasks&select=updated_at`, {headers:SB_HEADERS}).catch(()=>null);
+    if(tsRow?.ok){ const rows=await tsRow.json(); if(rows[0]?.updated_at) _lastSyncedAt=rows[0].updated_at; }
     setSaveStatus('saved');
   }catch(e){
     console.warn('[syncLoad] Supabase failed, using localStorage:', e.message);
@@ -6518,8 +6572,8 @@ async function init(){
   updateBellBadge();
   if(!apptCalMinimized) renderApptCalendar();
   setTimeout(checkBirthdayAlerts, 1800);
-  // Check if data needs recovering and show banner if so
   setTimeout(checkAndShowRecoveryBanner, 500);
+  startLiveSync(); // Start polling for changes from other devices
 }
 
 // ── ROTA EMBED ──────────────────────────────────────────
