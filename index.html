@@ -2061,9 +2061,11 @@ div:hover > .complete-tooltip { opacity: 1 !important; }
         <!-- Task meta strip: Task Lead · Due · Status -->
         <div id="task-view-meta" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;padding:10px 14px;background:var(--bg);border-radius:var(--radius-lg);border:1px solid var(--border);"></div>
         <!-- Description -->
-        <div id="task-view-desc" style="font-size:13px;color:var(--text);line-height:1.65;margin-bottom:14px;white-space:pre-wrap;"></div>
+        <div id="task-view-desc" style="font-size:13px;color:var(--text);line-height:1.65;margin-bottom:10px;white-space:pre-wrap;"></div>
         <!-- Notes -->
-        <div id="task-view-notes" style="display:none;font-size:11px;color:var(--muted);font-style:italic;margin-bottom:14px;padding:8px 12px;background:var(--bg);border-radius:var(--radius);border-left:3px solid var(--border2);white-space:pre-wrap;"></div>
+        <div id="task-view-notes" style="display:none;font-size:11px;color:var(--muted);font-style:italic;margin-bottom:10px;padding:8px 12px;background:var(--bg);border-radius:var(--radius);border-left:3px solid var(--border2);white-space:pre-wrap;"></div>
+        <!-- Action buttons — icon only, hover tooltip -->
+        <div id="task-action-btns" style="display:flex;gap:6px;margin-bottom:14px;"></div>
       </div>
 
       <!-- ══ EDIT/CREATE FORM — shown for new tasks and when editing ══ -->
@@ -3866,8 +3868,9 @@ function markDoneFromModal(taskId){
   renderAll();
   scheduleAutoSave();
   showToast('Task completed ✓');
-  // Refresh the modal header to show completed state
+  // Refresh modal header and action buttons
   renderTaskModalHeader(t, 'view');
+  switchTaskModalMode('view');
 }
 
 function doneCheckbox(taskId){
@@ -4704,34 +4707,6 @@ function renderTaskModalHeader(t, mode){
         </div>`:''}
       </div>
       <button class="mclose" onclick="closeModal('task-modal')" style="flex-shrink:0;margin-top:-2px;">✕</button>
-    </div>
-
-    <!-- Action buttons row -->
-    <div style="padding:10px 16px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);background:var(--bg);flex-wrap:wrap;">
-      ${t.status==='done'
-        ? `<div style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:var(--green);padding:7px 14px;border-radius:7px;background:var(--green-pale);border:1px solid var(--green-mid);">
-            <span>✓</span> Completed
-          </div>`
-        : `<button onclick="markDoneFromModal('${t.id}')"
-            style="font-family:'Manrope',sans-serif;font-size:11px;font-weight:700;padding:7px 16px;border-radius:7px;border:none;background:var(--green);color:#fff;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background 0.15s;"
-            onmouseover="this.style.background='var(--green-mid)'"
-            onmouseleave="this.style.background='var(--green)'"
-            title="Mark this task as complete">
-            ✓ Complete
-          </button>`
-      }
-      <button onclick="switchTaskModalMode('edit')"
-        style="font-family:'Manrope',sans-serif;font-size:11px;font-weight:700;padding:7px 14px;border-radius:7px;border:1px solid var(--border);background:var(--white);color:var(--green);cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:background 0.15s;"
-        onmouseover="this.style.background='var(--green-pale)'"
-        onmouseleave="this.style.background='var(--white)'">
-        ✏️ Edit
-      </button>
-      <button onclick="deleteTask()"
-        style="font-family:'Manrope',sans-serif;font-size:11px;font-weight:700;padding:7px 14px;border-radius:7px;border:1px solid #FECACA;background:var(--white);color:#DC2626;cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:background 0.15s;"
-        onmouseover="this.style.background='#FEE2E2'"
-        onmouseleave="this.style.background='var(--white)'">
-        🗑 Delete
-      </button>
     </div>`;
 }
 
@@ -4752,7 +4727,29 @@ function switchTaskModalMode(mode){
     if(viewDiv) viewDiv.style.display='block';
     if(editDiv) editDiv.style.display='none';
     if(checklistDiv){ checklistDiv.style.display='block'; renderTaskModalChecklist(t); }
-    if(actions) actions.innerHTML=''; // no footer buttons in view — Edit/Delete are in header
+    if(actions) actions.innerHTML='';
+
+    // Render icon-only action buttons
+    const btnWrap = document.getElementById('task-action-btns');
+    if(btnWrap){
+      const isDone = t.status === 'done';
+      const btnStyle = 'font-family:Manrope,sans-serif;width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--white);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:15px;transition:all 0.15s;position:relative;';
+      btnWrap.innerHTML = isDone
+        ? `<div style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:var(--green);padding:5px 10px;border-radius:8px;background:var(--green-pale);border:1px solid var(--green-mid);">✓ Done</div>`
+        : `<button onclick="markDoneFromModal('${t.id}')" title="Mark complete"
+              style="${btnStyle}border-color:var(--green-mid);color:var(--green);"
+              onmouseover="this.style.background='var(--green)';this.style.color='#fff'"
+              onmouseleave="this.style.background='var(--white)';this.style.color='var(--green)'">✓</button>`;
+      btnWrap.innerHTML += `
+        <button onclick="switchTaskModalMode('edit')" title="Edit task"
+          style="${btnStyle}"
+          onmouseover="this.style.background='var(--green-pale)'"
+          onmouseleave="this.style.background='var(--white)'">✏️</button>
+        <button onclick="deleteTask()" title="Delete task"
+          style="${btnStyle}border-color:#FECACA;color:#DC2626;"
+          onmouseover="this.style.background='#FEE2E2'"
+          onmouseleave="this.style.background='var(--white)'">🗑</button>`;
+    }
 
     // Populate view-mode display fields
     const descEl = document.getElementById('task-view-desc');
