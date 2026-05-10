@@ -4719,11 +4719,19 @@ const PLANNER_HOURS = Array.from({length:18},(_,i)=>i+7); // 07:00–00:00
 const SLOT_H = 60; // px per hour (30-min sub-lines shown)
 
 function plannerNav(dir){
-  if(_plannerView==='week') _plannerAnchor=new Date(_plannerAnchor.getTime()+dir*7*86400000);
-  else _plannerAnchor=new Date(_plannerAnchor.getTime()+dir*86400000);
+  // Navigate by calendar days (not ms) to avoid DST issues
+  const a = _plannerAnchor;
+  const step = _plannerView==='week' ? dir*7 : dir;
+  _plannerAnchor = new Date(a.getFullYear(), a.getMonth(), a.getDate()+step);
   renderPlanner();
 }
-function plannerGoToday(){ _plannerAnchor=new Date(); renderPlanner(); }
+function plannerGoToday(){
+  // Set anchor to UAE today using local midnight of the UAE date
+  const uaeStr = uaeDateStr();
+  const [y,m,d] = uaeStr.split('-').map(Number);
+  _plannerAnchor = new Date(y, m-1, d);
+  renderPlanner();
+}
 function setPlannerView(v){
   _plannerView=v;
   document.getElementById('planner-view-week').style.background = v==='week'?'#fff':'transparent';
@@ -4734,13 +4742,19 @@ function setPlannerView(v){
 }
 
 function plannerWeekDays(anchor){
-  const d=new Date(anchor);
-  const dow=d.getDay(); // 0=Sun
-  const mon=new Date(d); mon.setDate(d.getDate()-(dow===0?6:dow-1));
-  return Array.from({length:7},(_,i)=>{ const x=new Date(mon); x.setDate(mon.getDate()+i); return x; });
+  // Use UAE date string to find the correct Monday
+  const uaeStr = uaeDateStr(anchor);           // YYYY-MM-DD in UAE
+  const [y,m,d] = uaeStr.split('-').map(Number);
+  const uaeDate = new Date(y, m-1, d);         // local midnight — day-of-week is correct
+  const dow = uaeDate.getDay();                // 0=Sun
+  const monOffset = dow===0 ? -6 : 1-dow;
+  const monDate = new Date(y, m-1, d+monOffset);
+  return Array.from({length:7},(_,i)=>{
+    return new Date(monDate.getFullYear(), monDate.getMonth(), monDate.getDate()+i);
+  });
 }
 
-function ds(date){ return date.toISOString().slice(0,10); }
+function ds(date){ return uaeDateStr(date); }  // UAE timezone
 function todayDs(){ return uaeDateStr(); }  // UAE timezone
 
 function renderPlanner(){
@@ -4790,7 +4804,7 @@ function renderPlanner(){
   if(wlEl){
     wlEl.textContent = _plannerView==='week'
       ? days[0].toLocaleDateString('en-GB',{day:'numeric',month:'short'})+' – '+days[6].toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})
-      : _plannerAnchor.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+      : _plannerAnchor.toLocaleDateString('en-GB',{timeZone:'Asia/Dubai',weekday:'long',day:'numeric',month:'long',year:'numeric'});
   }
 
   const allTasks  = (state.tasks||[]).filter(t=>t.status!=='done'&&t.category!=='doctor');
@@ -4799,9 +4813,9 @@ function renderPlanner(){
   function tasksForDay(dayStr){
     return allTasks.filter(t=>{
       if(filterPerson && t.assignee!==filterPerson) return false;
-      if(!t.due) return true;                     // no date → show every day
-      if(t.due===dayStr) return true;             // due this specific day
-      if(t.status==='overdue') return true;       // overdue → show on ALL days until moved/done
+      if(t.status==='overdue') return false;           // overdue → goes to unscheduled strip, not day columns
+      if(!t.due) return false;                         // no due date → unscheduled strip only
+      if(t.due===dayStr) return true;                  // due this specific day
       return false;
     });
   }
@@ -4866,16 +4880,18 @@ function renderPlanner(){
       const cat    = getCat(t.category);
       const overdue = t.status==='overdue';
       const noDate  = !t.due;
-      const color   = overdue ? '#DC2626' : cat.color;
-      const bg      = overdue ? '#FEE2E2' : cat.color+'22';
+      // Always use category colour — add red left border + ⚠ badge if overdue
+      const color   = cat.color;
+      const bg      = cat.color+'22';
+      const bdrColor = overdue ? '#DC2626' : cat.color;
       timedItems.push({
         top, height, type:'task', id:t.id,
         html:`<div draggable="true" ondragstart="plannerDragStart(event,'task','${t.id}')"
           onclick="event.stopPropagation();openTaskTimeModal('${t.id}')" title="${t.title.replace(/"/g,'&quot;')}"
           style="position:absolute;height:100%;width:100%;background:${bg};
-            border-left:3px solid ${color};border-radius:4px;
+            border-left:3px solid ${bdrColor};border-radius:4px;
             padding:2px 4px;overflow:hidden;cursor:pointer;box-sizing:border-box;">
-          <div style="font-size:10px;font-weight:700;color:${overdue?'#991B1B':color};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3;">${overdue?'⚠ ':''}${noDate?'◷ ':''}${t.title}</div>
+          <div style="font-size:10px;font-weight:700;color:${color};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3;">${overdue?'<span style=\'color:#DC2626;\'>⚠</span> ':''}${noDate?'◷ ':''}${t.title}</div>
           ${height>30?`<div style="font-size:9px;color:${color};opacity:0.75;">${t.startTime}</div>`:''}
         </div>`
       });
@@ -4916,7 +4932,8 @@ function renderPlanner(){
 
     // Hour slots
     PLANNER_HOURS.forEach(hr=>{
-      const isNow = isToday && hr===new Date().getHours();
+      const uaeHrNow = parseInt(new Intl.DateTimeFormat('en',{timeZone:'Asia/Dubai',hour:'2-digit',hour12:false}).format(new Date()));
+      const isNow = isToday && hr===uaeHrNow;
       const halfTop = SLOT_H/2;
       h+=`<div class="planner-slot" data-day="${dayStr}" data-hr="${hr}"
         style="height:${SLOT_H}px;border-bottom:${isNow?'2px solid var(--green)':'0.5px solid var(--border)'};box-sizing:border-box;position:relative;"
@@ -4957,9 +4974,11 @@ function renderPlanner(){
   // ── Unscheduled strip (TOP position — prepended before grid) ──
   const untimedTasks = allTasks.filter(t=>{
     if(filterPerson && t.assignee!==filterPerson) return false;
-    if(t.startTime) return false;
-    if(!t.due) return true;
-    return daysStrs.includes(t.due)||(daysStrs.includes(todStr)&&t.due<todStr);
+    if(t.status==='done') return false;                // done tasks don't appear in strip
+    if(t.status==='overdue') return true;              // ALL overdue tasks → strip (not day columns)
+    if(t.startTime) return false;                      // timed tasks go in columns
+    if(!t.due) return true;                            // no date → strip
+    return false;                                      // dated tasks with time → columns only
   });
   const untimedEvents = allEvents.filter(e=>{
     if(filterPerson && e.assignee && e.assignee!==filterPerson) return false;
@@ -4969,19 +4988,25 @@ function renderPlanner(){
   // hUnscheduled already declared above
   if(untimedTasks.length||untimedEvents.length){
     hUnscheduled=`<div style="border-bottom:1px solid var(--border);padding:7px 12px;background:#FFFBEB;display:flex;flex-direction:column;gap:5px;">
-      <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:0.07em;color:#92400E;margin-bottom:3px;">⬆ Unscheduled — click to set time · drag to a slot</div>
+      <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:0.07em;color:#92400E;margin-bottom:3px;display:flex;align-items:center;justify-content:space-between;">
+        <span>⬆ Unscheduled &amp; Overdue — drag to a slot to schedule</span>
+        <button onclick="undoPlannerMove()" id="planner-undo-btn" title="Undo last move"
+          style="display:none;font-family:Manrope,sans-serif;font-size:9px;font-weight:700;padding:2px 8px;border-radius:6px;border:1px solid #D97706;background:#FEF3C7;color:#92400E;cursor:pointer;">↩ Undo</button>
+      </div>
       <div style="display:flex;flex-wrap:wrap;gap:4px;">
       ${untimedTasks.map(t=>{
         const cat=getCat(t.category);
         const overdue=t.status==='overdue';
         const noDate=!t.due;
-        const color=overdue?'#DC2626':cat.color;
+        // Use category colour always; red left border for overdue
+        const color=cat.color;
+        const bdrColor=overdue?'#DC2626':cat.color;
         return `<div draggable="true" ondragstart="plannerDragStart(event,'task','${t.id}')"
           onclick="openTaskTimeModal('${t.id}')"
-          style="padding:3px 8px;border-radius:6px;border-left:3px solid ${color};
-            background:${overdue?'#FEF2F2':cat.color+'18'};cursor:pointer;font-size:10px;font-weight:700;
-            color:${overdue?'#991B1B':color};display:inline-flex;align-items:center;gap:4px;max-width:200px;">
-          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${overdue?'⚠ ':''}${noDate?'◷ ':''}${t.title}</span>
+          style="padding:3px 8px;border-radius:6px;border-left:3px solid ${bdrColor};
+            background:${cat.color+'18'};cursor:pointer;font-size:10px;font-weight:700;
+            color:${color};display:inline-flex;align-items:center;gap:4px;max-width:200px;">
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${overdue?'<span style=\'color:#DC2626;\'>⚠</span> ':''}${noDate?'◷ ':''}${t.title}</span>
           ${noDate?'<span style="font-size:9px;opacity:0.55;flex-shrink:0;">no date</span>':''}
         </div>`;
       }).join('')}
@@ -5004,6 +5029,24 @@ function plannerDragStart(e, type, id){
   e.dataTransfer.effectAllowed = 'move';
 }
 function plannerDragOver(e){ e.preventDefault(); e.dataTransfer.dropEffect='move'; }
+// ── Undo history ─────────────────────────────────────
+let _plannerUndoStack = [];
+function undoPlannerMove(){
+  if(!_plannerUndoStack.length) return;
+  const prev = _plannerUndoStack.pop();
+  const t = state.tasks.find(x=>x.id===prev.id);
+  if(t){
+    t.due       = prev.due;
+    t.startTime = prev.startTime;
+    t.status    = prev.status;
+    renderAll(); scheduleAutoSave(); renderPlanner();
+    showToast('↩ Move undone');
+  }
+  // Hide undo btn if stack empty
+  const ubtn = document.getElementById('planner-undo-btn');
+  if(ubtn) ubtn.style.display = _plannerUndoStack.length ? 'block' : 'none';
+}
+
 function plannerDrop(e, dayStr){
   e.preventDefault();
   if(!_dragPayload) return;
@@ -5014,8 +5057,17 @@ function plannerDrop(e, dayStr){
   if(_dragPayload.type==='task'){
     const t = state.tasks.find(x=>x.id===_dragPayload.id);
     if(t){
+      // Save undo snapshot before mutating
+      _plannerUndoStack.push({ id:t.id, due:t.due, startTime:t.startTime, status:t.status });
+      if(_plannerUndoStack.length>20) _plannerUndoStack.shift(); // cap at 20
+      // Show undo button
+      const ubtn = document.getElementById('planner-undo-btn');
+      if(ubtn) ubtn.style.display = 'block';
+
       t.due = dayStr;
       if(timeStr) t.startTime = timeStr;
+      // Dragged to a slot — clear overdue, reset to todo
+      if(t.status==='overdue') t.status = 'todo';
       if(dayStr >= todayDs() && t.status==='overdue') t.status='todo';
       renderAll(); scheduleAutoSave();
       showToast('Task moved to '+new Date(dayStr+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'})+(timeStr?' at '+timeStr:''));
@@ -5258,7 +5310,8 @@ function checkOverdueSummary(){
     const subEl  = document.getElementById('overdue-popup-subtitle');
     if(!msgEl) return;
 
-    const greet = new Date().getHours()<12?'Good morning':new Date().getHours()<18?'Good afternoon':'Good evening';
+    const uaeHrGreet = parseInt(new Intl.DateTimeFormat('en',{timeZone:'Asia/Dubai',hour:'2-digit',hour12:false}).format(new Date()));
+    const greet = uaeHrGreet<12?'Good morning':uaeHrGreet<18?'Good afternoon':'Good evening';
     if(subEl) subEl.textContent = greet+' — here\'s what needs your attention';
 
     msgEl.innerHTML = `<span style="font-size:20px;">👋</span> <strong>${count} task${count!==1?'s':''}</strong> from yesterday weren't completed and have rolled over. Let me know how you'd like to handle them.`;
