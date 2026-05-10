@@ -6050,9 +6050,9 @@ function renderAll(){
 }
 
 // ── TOAST ────────────────────────────────────────────────
-function showToast(msg){
+function showToast(msg, duration){
   const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
-  setTimeout(()=>t.classList.remove('show'),2400);
+  setTimeout(()=>t.classList.remove('show'), duration||2400);
 }
 
 // ── AI AGENT ─────────────────────────────────────────────
@@ -6446,6 +6446,8 @@ async function init(){
   updateBellBadge();
   if(!apptCalMinimized) renderApptCalendar();
   setTimeout(checkBirthdayAlerts, 1800);
+  // Check if data needs recovering and show banner if so
+  setTimeout(checkAndShowRecoveryBanner, 500);
 }
 
 // ── ROTA EMBED ──────────────────────────────────────────
@@ -11394,6 +11396,71 @@ function renderSyncStatus(){
     : `⚠️ Default token may be expired · Last synced: ${lastStr} · Enter a new token below`;
 }
 
+// ── AUTO RECOVERY CHECK ─────────────────────────────────
+// Runs after init — if tasks are empty but backup has data, show a prominent banner
+function checkAndShowRecoveryBanner(){
+  if(state.tasks.length > 0 && (patients||[]).length > 0) return; // all good
+
+  const backup = JSON.parse(localStorage.getItem('cc_state_backup')||'{}');
+  const pts    = JSON.parse(localStorage.getItem('cc_patients_v1')||'[]');
+  const taskCount = (backup.tasks||[]).length;
+  const ptCount   = Math.max(pts.length, (backup.patients||[]).length);
+
+  if(taskCount === 0 && ptCount === 0) return; // nothing to recover
+
+  // Show a big visible recovery banner at the top of the page
+  const existing = document.getElementById('recovery-banner');
+  if(existing) existing.remove();
+
+  const banner = document.createElement('div');
+  banner.id = 'recovery-banner';
+  banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#DC2626;color:#fff;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;box-shadow:0 4px 20px rgba(0,0,0,0.3);font-family:Manrope,sans-serif;';
+  banner.innerHTML = `
+    <div style="flex:1;min-width:0;">
+      <div style="font-size:13px;font-weight:800;">⚠️ Your data is saved — tap to restore it</div>
+      <div style="font-size:11px;opacity:0.9;margin-top:2px;">Found backup: ${taskCount} tasks · ${ptCount} patients</div>
+    </div>
+    <button onclick="oneClickRestore()" style="font-family:Manrope,sans-serif;font-size:12px;font-weight:800;padding:8px 20px;border-radius:8px;border:2px solid #fff;background:#fff;color:#DC2626;cursor:pointer;white-space:nowrap;flex-shrink:0;">
+      ⚡ Restore now
+    </button>
+    <button onclick="document.getElementById('recovery-banner').remove()" style="background:none;border:none;color:rgba(255,255,255,0.8);font-size:20px;cursor:pointer;padding:0 4px;flex-shrink:0;">✕</button>`;
+  document.body.prepend(banner);
+}
+
+function oneClickRestore(){
+  const backup = JSON.parse(localStorage.getItem('cc_state_backup')||'{}');
+  const pts    = JSON.parse(localStorage.getItem('cc_patients_v1')||'[]');
+  const apts   = JSON.parse(localStorage.getItem('cc_appointments_v1')||'[]');
+
+  let restored = [];
+
+  if(backup.tasks       && backup.tasks.length)       { state.tasks = backup.tasks; restored.push(backup.tasks.length+' tasks'); }
+  if(backup.team        && backup.team.length)        state.team = backup.team;
+  if(backup.categories  && backup.categories.length)  state.categories = backup.categories;
+  if(backup.doctors     && backup.doctors.length)     state.doctors = backup.doctors;
+  if(backup.reminders)                                state.reminders = backup.reminders;
+  if(backup.billingEntries)                           state.billingEntries = backup.billingEntries;
+  if(backup.billedArchive)                            state.billedArchive = backup.billedArchive;
+  if(backup.eodHistory)                               state.eodHistory = backup.eodHistory;
+  if(backup.directory   && backup.directory.length)   { dirEntries = backup.directory; restored.push(backup.directory.length+' contacts'); }
+  if(backup.medications && backup.medications.length) { medEntries = backup.medications; restored.push(backup.medications.length+' medications'); }
+  if(backup.hrLeave     && backup.hrLeave.length)     { window._hrLeave = backup.hrLeave; }
+  if(backup.hrDevices   && backup.hrDevices.length)   { window._hrDevices = backup.hrDevices; }
+
+  // Patients
+  if(pts.length > 0){ patients = pts; restored.push(pts.length+' patients'); }
+  else if(backup.patients && backup.patients.length){ patients = backup.patients; restored.push(backup.patients.length+' patients'); }
+
+  // Appointments
+  if(apts.length) appointments = apts;
+
+  renderAll(); updatePtCount();
+  scheduleAutoSave();
+
+  document.getElementById('recovery-banner')?.remove();
+  showToast('✅ Restored: '+restored.join(' · '), 4000);
+}
+
 function checkLocalBackup(){
   const el = document.getElementById('recovery-result');
   try{
@@ -11401,15 +11468,10 @@ function checkLocalBackup(){
     const pts     = JSON.parse(localStorage.getItem('cc_patients_v1')||'[]');
     const apts    = JSON.parse(localStorage.getItem('cc_appointments_v1')||'[]');
     const savedAt = backup.savedAt ? new Date(backup.savedAt).toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : 'Unknown';
-
     const snapKeys = Object.keys(localStorage).filter(k=>k.startsWith('cc_snap_')).sort().reverse();
     const snapInfo = snapKeys.map(k=>{
-      try{
-        const s=JSON.parse(localStorage.getItem(k)||'{}');
-        return `  📸 ${new Date(s.savedAt).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})} — ${s.taskCount||0} tasks · ${s.patientCount||0} patients`;
-      }catch(e){ return '  📸 '+k; }
+      try{ const s=JSON.parse(localStorage.getItem(k)||'{}'); return `  📸 ${new Date(s.savedAt).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})} — ${s.taskCount||0} tasks · ${s.patientCount||0} patients`; }catch(e){ return '  📸 '+k; }
     }).join('\n');
-
     const info = [
       `📅 Primary backup: ${savedAt}`,
       `─────────────────────────`,
@@ -11421,21 +11483,14 @@ function checkLocalBackup(){
       `🌴 HR leave:      ${(backup.hrLeave||[]).length}`,
       `💻 HR devices:    ${(backup.hrDevices||[]).length}`,
       `─────────────────────────`,
-      `🔵 Currently loaded:`,
-      `   ${state.tasks.length} tasks · ${(patients||[]).length} patients`,
+      `🔵 Currently loaded: ${state.tasks.length} tasks · ${(patients||[]).length} patients`,
       `\n⏱ Hourly snapshots:`,
-      snapInfo || '  None yet (saves after first hour)',
+      snapInfo || '  None yet',
     ].join('\n');
-
     const hasMissingData = (backup.tasks||[]).length > state.tasks.length || pts.length > (patients||[]).length;
-    if(el){
-      el.style.color = hasMissingData ? '#DC2626' : '#065F46';
-      el.textContent = info;
-      if(hasMissingData) el.textContent += '\n\n⚠️ Backup has more data than shown — press Restore!';
-    }
-  }catch(e){
-    if(el) el.textContent = '❌ Could not read backup: '+e.message;
-  }
+    if(el){ el.style.color = hasMissingData ? '#DC2626' : '#065F46'; el.textContent = info;
+      if(hasMissingData) el.textContent += '\n\n⚠️ Backup has more data — press Restore!'; }
+  }catch(e){ if(el) el.textContent = '❌ Could not read backup: '+e.message; }
 }
 
 function restoreFromLocalBackup(){
