@@ -501,6 +501,22 @@ div:hover > .complete-tooltip { opacity: 1 !important; }
 @media (max-width: 768px) {
   #ai-panel { width: calc(100vw - 32px); right: 16px; bottom: 80px; }
   #ai-bubble { bottom: 16px; right: 16px; }
+  /* Task modal: full-width bottom sheet on mobile */
+  #task-modal .modal {
+    max-width: 100vw !important;
+    width: 100vw !important;
+    max-height: 95dvh !important;
+    border-radius: 20px 20px 0 0 !important;
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    margin: 0 !important;
+  }
+  /* Push action buttons above iPhone home bar */
+  #task-action-btns {
+    padding-bottom: max(12px, env(safe-area-inset-bottom)) !important;
+  }
 }
 
 /* ══════════════════════════════════════════════════════
@@ -845,6 +861,14 @@ div:hover > .complete-tooltip { opacity: 1 !important; }
 
   /* Patient panel back button */
   #pt-detail-panel .modal-head button { font-size: 14px; padding: 3px 6px; }
+}
+
+/* Task modal overlay — full screen on mobile */
+@media (max-width: 768px) {
+  #task-modal.modal-overlay {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
 }
 </style>
 </head>
@@ -2523,7 +2547,7 @@ div:hover > .complete-tooltip { opacity: 1 !important; }
         <!-- 2-col detail grid -->
         <div id="task-detail-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px 20px;margin-bottom:14px;padding:12px 14px;background:var(--bg);border-radius:var(--radius-lg);border:1px solid var(--border);"></div>
         <!-- Action buttons row -->
-        <div id="task-action-btns" style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border);"></div>
+        <div id="task-action-btns" style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border);flex-wrap:nowrap;"></div>
       </div>
 
       <!-- ══ EDIT/CREATE FORM — shown for new tasks and when editing ══ -->
@@ -5687,6 +5711,8 @@ function toggleTaskComments(){
 
 function closeTaskModalCheckReturn(){
   closeModal('task-modal');
+  // Restore AI bubble on mobile
+  const _aib2=document.getElementById('ai-bubble'); if(_aib2) _aib2.style.display='flex';
   if(window._overdueLogReturn){
     window._overdueLogReturn = false;
     setTimeout(()=>{
@@ -6670,69 +6696,73 @@ function switchTaskModalMode(mode){
     if(checklistDiv){ checklistDiv.style.display='block'; renderTaskModalChecklist(t); }
     if(actions) actions.innerHTML='';
 
-    // Render round icon action buttons
+    // Render action buttons — clean single row, responsive
     const btnWrap = document.getElementById('task-action-btns');
     if(btnWrap){
       const isDone = t.status === 'done';
-      const rb = (extra='') => `font-family:Manrope,sans-serif;width:34px;height:34px;border-radius:50%;border:1.5px solid var(--border);background:var(--white);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:all 0.15s;flex-shrink:0;${extra}`;
-      btnWrap.style.cssText = 'display:flex;align-items:center;gap:8px;';
-
-      // ── LEFT: Comments / thread toggle ──
+      const rb = (extra='', sz=34) => `font-family:Manrope,sans-serif;width:${sz}px;height:${sz}px;border-radius:50%;border:1.5px solid var(--border);background:var(--white);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:all 0.15s;flex-shrink:0;${extra}`;
       const threadCnt = (t.thread||[]).filter(m=>!m._isChecklist).length;
-      let html = `<button onclick="toggleTaskComments()" id="task-comments-btn" title="Comments & updates"
-        style="${rb('border-color:var(--green-mid);position:relative;')}"
+
+      // Single flex row — all icons in one line
+      btnWrap.style.cssText = 'display:flex;align-items:center;gap:8px;flex-wrap:nowrap;';
+
+      // 💬 Comments (LEFT, prominent)
+      let h = `<button onclick="toggleTaskComments()" id="task-comments-btn" title="Comments & updates"
+        style="${rb('border-color:var(--green-mid);position:relative;',36)}"
         onmouseover="this.style.background='var(--green-pale)';this.style.borderColor='var(--green)'"
         onmouseleave="this.style.background='var(--white)';this.style.borderColor='var(--green-mid)'">
-        <img src="data:image/png;base64,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" width="18" height="18" style="display:block;object-fit:contain;filter:none;" alt="comments">
-        ${threadCnt>0?`<span style="position:absolute;top:-3px;right:-3px;width:14px;height:14px;border-radius:50%;background:var(--green);color:#fff;font-size:8px;font-weight:800;display:flex;align-items:center;justify-content:center;">${threadCnt}</span>`:''}
+        <img src="data:image/png;base64,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" width="18" height="18" style="display:block;object-fit:contain;" alt="comments">
+        ${threadCnt>0?`<span style="position:absolute;top:-3px;right:-3px;width:15px;height:15px;border-radius:50%;background:var(--green);color:#fff;font-size:8px;font-weight:800;display:flex;align-items:center;justify-content:center;">${threadCnt}</span>`:''}
       </button>`;
 
-      // ── Spacer ──
-      html += `<div style="flex:1;"></div>`;
+      // Spacer pushes right-side icons to far right
+      h += `<div style="flex:1;"></div>`;
 
-      // ── RIGHT: Done, Edit, Delete, Help ──
+      // ✓ Complete / Done pill
       if(isDone){
-        html += `<div style="display:flex;align-items:center;gap:7px;">
-          <div style="font-size:11px;font-weight:700;color:var(--green);padding:5px 12px;border-radius:20px;background:var(--green-pale);border:1.5px solid var(--green-mid);white-space:nowrap;">✓ Done</div>
-          <button onclick="reopenTask('${t.id}')" title="Reopen task" style="${rb('border-color:#FEF3C7;')}"
-            onmouseover="this.style.background='#FEF3C7';this.style.borderColor='#D97706'"
-            onmouseleave="this.style.background='var(--white)';this.style.borderColor='#FEF3C7'">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#D97706" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-5H1"/></svg>
+        h += `<div style="font-size:11px;font-weight:700;color:var(--green);padding:4px 10px;border-radius:16px;background:var(--green-pale);border:1.5px solid var(--green-mid);white-space:nowrap;display:flex;align-items:center;gap:5px;">
+          ✓ Done
+          <button onclick="reopenTask('${t.id}')" title="Reopen" style="background:none;border:none;cursor:pointer;padding:0;display:flex;align-items:center;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#D97706" stroke-width="2.5" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-5H1"/></svg>
           </button>
         </div>`;
       } else {
-        // Complete — green filled on hover
-        html += `<button onclick="markDoneFromModal('${t.id}')" title="Mark complete"
+        // ✓ Complete
+        h += `<button onclick="markDoneFromModal('${t.id}')" title="Mark complete"
           style="${rb('border-color:#BBF7D0;')}"
           onmouseover="this.style.background='var(--green)';this.style.borderColor='var(--green)'"
           onmouseleave="this.style.background='var(--white)';this.style.borderColor='#BBF7D0'">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
         </button>`;
       }
-      // Edit — pencil
-      html += `<button onclick="switchTaskModalMode('edit')" title="Edit task"
+
+      // ✏ Edit
+      h += `<button onclick="switchTaskModalMode('edit')" title="Edit task"
         style="${rb()}"
         onmouseover="this.style.background='var(--green-pale)';this.style.borderColor='var(--green)'"
         onmouseleave="this.style.background='var(--white)';this.style.borderColor='var(--border)'">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0f5132" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0f5132" stroke-width="2.2" stroke-linecap="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
       </button>`;
-      // Delete — bin, red accent
-      html += `<button onclick="deleteTask()" title="Delete task"
+
+      // 🗑 Delete
+      h += `<button onclick="deleteTask()" title="Delete task"
         style="${rb('border-color:#FECACA;')}"
         onmouseover="this.style.background='#FEE2E2';this.style.borderColor='#DC2626'"
         onmouseleave="this.style.background='var(--white)';this.style.borderColor='#FECACA'">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2.2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
       </button>`;
-      // Help — hand-shake / people, blue accent
-      html += `<button onclick="requestHelp('${t.id}')" title="Request help from team"
+
+      // 🤝 Help
+      h += `<button onclick="requestHelp('${t.id}')" title="Request help"
         style="${rb('border-color:#BFDBFE;')}"
         onmouseover="this.style.background='#DBEAFE';this.style.borderColor='#3B82F6'"
         onmouseleave="this.style.background='var(--white)';this.style.borderColor='#BFDBFE'">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2.2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
       </button>`;
 
-      btnWrap.innerHTML = html;
+      btnWrap.innerHTML = h;
     }
+
 
     // Populate 2-col detail grid
     const gridEl = document.getElementById('task-detail-grid');
@@ -7002,6 +7032,8 @@ function openTaskModal(taskId, prefillDate=''){
     _taskModalMode = 'view';
     switchTaskModalMode('view');
   }
+  // Hide AI bubble on mobile to avoid overlap with action buttons
+  const _aib=document.getElementById('ai-bubble'); if(_aib && window.innerWidth<=768) _aib.style.display='none';
   openModal('task-modal');
 }
 
