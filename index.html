@@ -848,33 +848,9 @@ div:hover > .complete-tooltip { opacity: 1 !important; }
   #pt-detail-panel .modal-head button { font-size: 14px; padding: 3px 6px; }
 }
 
-/* ── iPhone task modal: bottom sheet ── */
-/* Show drag handle on mobile */
-@media (max-width: 768px) {
-  .modal-drag-handle { display: flex !important; }
 }
 
-@media (max-width: 768px) {
-  #task-modal.modal-overlay.open {
-    align-items: flex-end !important;
-    padding: 0 !important;
-    background: rgba(0,0,0,0.45) !important;
-  }
-  #task-modal-inner {
-    max-width: 100vw !important;
-    width: 100vw !important;
-    max-height: 92dvh !important;
-    border-radius: 18px 18px 0 0 !important;
-    margin: 0 !important;
-    box-shadow: 0 -8px 32px rgba(0,0,0,0.18) !important;
-  }
-  #task-modal-inner .modal-body {
-    padding-bottom: env(safe-area-inset-bottom, 16px) !important;
-  }
-  #task-action-btns {
-    margin-bottom: env(safe-area-inset-bottom, 12px) !important;
-  }
-}
+
 </style>
 </head>
 <body>
@@ -5719,6 +5695,7 @@ function toggleTaskComments(){
 }
 
 function closeTaskModalCheckReturn(){
+  resetTaskModalStyles();
   closeModal('task-modal');
   // Restore AI bubble on mobile
   const _aib2=document.getElementById('ai-bubble'); if(_aib2) _aib2.style.display='flex';
@@ -7044,6 +7021,7 @@ function openTaskModal(taskId, prefillDate=''){
   // Hide AI bubble on mobile to avoid overlap with action buttons
   const _aib=document.getElementById('ai-bubble'); if(_aib && window.innerWidth<=768) _aib.style.display='none';
   openModal('task-modal');
+  applyMobileTaskModal();
 }
 
 function saveTask(){
@@ -7366,6 +7344,53 @@ function addCategory(){
 function saveCategories(){ closeModal('cat-modal'); renderAll(); scheduleAutoSave(); showToast('Categories saved ✓'); }
 
 // ── MODALS ───────────────────────────────────────────────
+
+// ── Mobile task modal: bottom sheet via JS (bypasses CSS specificity) ──
+
+window.addEventListener('resize', ()=>{
+  const tm = document.getElementById('task-modal');
+  if(tm && tm.classList.contains('open')){
+    if(window.innerWidth > 768) resetTaskModalStyles();
+    else applyMobileTaskModal();
+  }
+});
+function applyMobileTaskModal(){
+  if(window.innerWidth > 768) return;
+  const overlay = document.getElementById('task-modal');
+  const inner   = document.getElementById('task-modal-inner');
+  if(!overlay || !inner) return;
+  // Overlay: align to bottom
+  overlay.style.alignItems    = 'flex-end';
+  overlay.style.padding       = '0';
+  overlay.style.background    = 'rgba(0,0,0,0.5)';
+  // Inner modal: full width, rounded top, slide from bottom
+  inner.style.width           = '100vw';
+  inner.style.maxWidth        = '100vw';
+  inner.style.maxHeight       = '92dvh';
+  inner.style.borderRadius    = '18px 18px 0 0';
+  inner.style.margin          = '0';
+  inner.style.boxShadow       = '0 -8px 32px rgba(0,0,0,0.2)';
+  // Show drag handle
+  const handle = inner.querySelector('.modal-drag-handle');
+  if(handle) handle.style.display = 'flex';
+}
+
+function resetTaskModalStyles(){
+  const overlay = document.getElementById('task-modal');
+  const inner   = document.getElementById('task-modal-inner');
+  if(!overlay || !inner) return;
+  overlay.style.alignItems = '';
+  overlay.style.padding    = '';
+  overlay.style.background = '';
+  inner.style.width        = '';
+  inner.style.maxWidth     = '';
+  inner.style.maxHeight    = '';
+  inner.style.borderRadius = '';
+  inner.style.margin       = '';
+  inner.style.boxShadow    = '';
+  const handle = inner.querySelector('.modal-drag-handle');
+  if(handle) handle.style.display = 'none';
+}
 function openModal(id){
   const el = document.getElementById(id);
   if(!el){ console.warn('openModal: element not found:', id); return; }
