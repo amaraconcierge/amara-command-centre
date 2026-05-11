@@ -851,6 +851,34 @@ div:hover > .complete-tooltip { opacity: 1 !important; }
 }
 
 
+
+/* ── Task Modal — desktop + mobile ── */
+.task-modal-inner {
+  max-width: 640px;
+  max-height: 92vh;
+  width: 100%;
+}
+.task-modal-overlay { /* inherits display:none / display:flex from .modal-overlay */ }
+
+@media (max-width: 768px) {
+  .task-modal-overlay.open {
+    align-items: flex-end;
+    justify-content: flex-end;
+    padding: 0;
+    background: rgba(0,0,0,0.5);
+  }
+  .task-modal-inner {
+    max-width: 100%;
+    width: 100%;
+    max-height: 90vh;
+    border-radius: 20px 20px 0 0;
+    margin: 0;
+    box-shadow: 0 -6px 24px rgba(0,0,0,0.18);
+    border: none;
+  }
+  .modal-drag-handle { display: flex !important; }
+}
+
 </style>
 </head>
 <body>
@@ -2511,8 +2539,8 @@ div:hover > .complete-tooltip { opacity: 1 !important; }
 </div>
 
 <!-- ══ TASK MODAL ══ -->
-<div class="modal-overlay" id="task-modal">
-  <div class="modal" id="task-modal-inner" style="max-width:640px;max-height:92vh;display:flex;flex-direction:column;">
+<div class="modal-overlay task-modal-overlay" id="task-modal">
+  <div class="modal task-modal-inner" id="task-modal-inner" style="display:flex;flex-direction:column;">
 
     <!-- Dynamic header — shows patient + priority when editing, plain when new -->
     <!-- Drag handle (mobile only) -->
@@ -7354,43 +7382,9 @@ window.addEventListener('resize', ()=>{
     else applyMobileTaskModal();
   }
 });
-function applyMobileTaskModal(){
-  if(window.innerWidth > 768) return;
-  const overlay = document.getElementById('task-modal');
-  const inner   = document.getElementById('task-modal-inner');
-  if(!overlay || !inner) return;
-  // Overlay: align to bottom
-  overlay.style.alignItems    = 'flex-end';
-  overlay.style.padding       = '0';
-  overlay.style.background    = 'rgba(0,0,0,0.5)';
-  // Inner modal: full width, rounded top, slide from bottom
-  inner.style.width           = '100vw';
-  inner.style.maxWidth        = '100vw';
-  inner.style.maxHeight       = '92dvh';
-  inner.style.borderRadius    = '18px 18px 0 0';
-  inner.style.margin          = '0';
-  inner.style.boxShadow       = '0 -8px 32px rgba(0,0,0,0.2)';
-  // Show drag handle
-  const handle = inner.querySelector('.modal-drag-handle');
-  if(handle) handle.style.display = 'flex';
-}
+function applyMobileTaskModal(){ /* CSS handles this now */ }
 
-function resetTaskModalStyles(){
-  const overlay = document.getElementById('task-modal');
-  const inner   = document.getElementById('task-modal-inner');
-  if(!overlay || !inner) return;
-  overlay.style.alignItems = '';
-  overlay.style.padding    = '';
-  overlay.style.background = '';
-  inner.style.width        = '';
-  inner.style.maxWidth     = '';
-  inner.style.maxHeight    = '';
-  inner.style.borderRadius = '';
-  inner.style.margin       = '';
-  inner.style.boxShadow    = '';
-  const handle = inner.querySelector('.modal-drag-handle');
-  if(handle) handle.style.display = 'none';
-}
+function resetTaskModalStyles(){ /* CSS handles this now */ }
 function openModal(id){
   const el = document.getElementById(id);
   if(!el){ console.warn('openModal: element not found:', id); return; }
