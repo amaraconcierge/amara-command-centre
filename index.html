@@ -10009,7 +10009,32 @@ document.addEventListener('click', e=>{
           </button>
           <span id="pt-list-count" style="font-size:11px;color:var(--muted2);"></span>
         </div>
-        <div style="font-size:10px;color:var(--muted2);font-style:italic;">Sorted A–Z</div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <button id="pt-select-btn" onclick="ptToggleSelectMode()"
+            style="font-family:'Manrope',sans-serif;font-size:11px;font-weight:700;padding:5px 12px;border-radius:6px;border:1px solid var(--border2);background:var(--white);color:var(--muted);cursor:pointer;transition:all 0.12s;">
+            ☑ Select
+          </button>
+          <div style="font-size:10px;color:var(--muted2);font-style:italic;">Sorted A–Z</div>
+        </div>
+      </div>
+
+      <!-- Bulk action bar — shown when in select mode -->
+      <div id="pt-bulk-bar" style="display:none;padding:8px 16px;background:#FEF3C7;border-bottom:1px solid #D97706;align-items:center;gap:10px;flex-wrap:wrap;">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-family:'Manrope',sans-serif;font-size:11px;font-weight:700;color:#92400E;">
+          <input type="checkbox" id="pt-select-all" onchange="ptSelectAll(this.checked)" style="width:16px;height:16px;accent-color:var(--green);cursor:pointer;">
+          Select all
+        </label>
+        <span id="pt-selected-count" style="font-size:11px;font-weight:700;color:#92400E;background:rgba(217,119,6,0.15);padding:2px 8px;border-radius:10px;">0 selected</span>
+        <div style="margin-left:auto;display:flex;gap:6px;">
+          <button onclick="ptBulkDelete()" id="pt-bulk-delete-btn"
+            style="font-family:'Manrope',sans-serif;font-size:11px;font-weight:700;padding:5px 14px;border-radius:6px;border:none;background:#DC2626;color:#fff;cursor:pointer;opacity:0.5;pointer-events:none;transition:all 0.15s;">
+            🗑 Delete selected
+          </button>
+          <button onclick="ptToggleSelectMode()"
+            style="font-family:'Manrope',sans-serif;font-size:11px;font-weight:700;padding:5px 12px;border-radius:6px;border:1px solid var(--border2);background:var(--white);color:var(--muted);cursor:pointer;">
+            Cancel
+          </button>
+        </div>
       </div>
 
       <!-- Alphabet quick-nav -->
@@ -10199,6 +10224,16 @@ document.addEventListener('click', e=>{
           <input type="checkbox" id="pm-amaraone" style="width:15px;height:15px;accent-color:#7C3AED;" onchange="updatePmFlagLabel('amaraone')">
           <span style="font-size:11px;font-weight:800;color:#7C3AED;">💜 AmaraOne</span>
         </label>
+      </div>
+
+      <!-- Duplicate warning (shown only when a potential duplicate is found) -->
+      <div id="pm-dupe-warn" style="display:none;margin-top:12px;padding:10px 14px;background:#FEF3C7;border:1px solid #D97706;border-radius:8px;border-left:4px solid #D97706;">
+        <div style="font-size:11px;font-weight:700;color:#92400E;margin-bottom:6px;">⚠️ Possible duplicate detected</div>
+        <div id="pm-dupe-warn-text" style="font-size:11px;color:#78350F;line-height:1.5;margin-bottom:8px;"></div>
+        <div style="display:flex;gap:8px;">
+          <button id="pm-save-anyway-btn" onclick="_doSavePatient()" class="fbtn primary" style="display:none;font-size:11px;padding:6px 14px;background:#D97706;border-color:#D97706;">Save anyway</button>
+          <button onclick="document.getElementById('pm-dupe-warn').style.display='none';document.getElementById('pm-save-anyway-btn').style.display='none';" class="fbtn ghost" style="font-size:11px;padding:6px 14px;">Dismiss</button>
+        </div>
       </div>
 
       <div class="form-actions" style="margin-top:20px;">
@@ -10497,6 +10532,8 @@ let ptEditingId = null;
 let ptEditingTaskId = null;
 let ptBillingArrangement = 'internal';
 let ptShowAll = true;
+let ptSelectMode = false;
+let ptSelectedIds = new Set();
 
 const PT_KEY = 'cc_patients_v1';
 function ptLoad(){ try{ patients=JSON.parse(localStorage.getItem(PT_KEY)||'[]'); }catch(e){ patients=[]; } }
@@ -10652,6 +10689,100 @@ function renderPatientSuggestions(){
 }
 
 
+// ── BULK SELECT ─────────────────────────────────────
+function ptToggleSelectMode(){
+  ptSelectMode = !ptSelectMode;
+  ptSelectedIds.clear();
+  const bar  = document.getElementById('pt-bulk-bar');
+  const btn  = document.getElementById('pt-select-btn');
+  const saEl = document.getElementById('pt-select-all');
+  if(bar)  bar.style.display  = ptSelectMode ? 'flex' : 'none';
+  if(btn){
+    btn.style.background    = ptSelectMode ? 'var(--green)' : 'var(--white)';
+    btn.style.color         = ptSelectMode ? '#fff' : 'var(--muted)';
+    btn.style.borderColor   = ptSelectMode ? 'var(--green)' : 'var(--border2)';
+  }
+  if(saEl) saEl.checked = false;
+  ptUpdateBulkBar();
+  renderPatientSearchList(); // re-render grid with/without checkboxes
+}
+
+function ptCardClick(id){
+  if(ptSelectMode){
+    const cb = document.querySelector(`.pt-select-cb[data-id="${id}"]`);
+    const newChecked = cb ? !cb.checked : !ptSelectedIds.has(id);
+    if(cb) cb.checked = newChecked;
+    ptToggleSelect(id, newChecked);
+  } else {
+    selectPatient(id);
+  }
+}
+
+function ptToggleSelect(id, checked){
+  if(checked) ptSelectedIds.add(id);
+  else ptSelectedIds.delete(id);
+  // Update card highlight directly (avoid full re-render)
+  document.querySelectorAll('.pt-card[data-letter]').forEach(card=>{
+    const cb = card.querySelector('.pt-select-cb');
+    if(!cb || cb.dataset.id !== id) return;
+    if(checked){
+      card.style.borderColor = 'var(--green)';
+      card.style.background  = 'var(--green-pale)';
+      card.style.outline     = '2px solid var(--green)';
+    } else {
+      card.style.borderColor = '';
+      card.style.background  = '';
+      card.style.outline     = '';
+    }
+  });
+  ptUpdateBulkBar();
+}
+
+function ptSelectAll(checked){
+  // Select/deselect all currently visible patients
+  document.querySelectorAll('.pt-select-cb').forEach(cb=>{
+    cb.checked = checked;
+    if(checked) ptSelectedIds.add(cb.dataset.id);
+    else ptSelectedIds.delete(cb.dataset.id);
+  });
+  ptUpdateBulkBar();
+}
+
+function ptUpdateBulkBar(){
+  const n = ptSelectedIds.size;
+  const countEl = document.getElementById('pt-selected-count');
+  const delBtn  = document.getElementById('pt-bulk-delete-btn');
+  if(countEl) countEl.textContent = n + ' selected';
+  if(delBtn){
+    delBtn.style.opacity        = n > 0 ? '1' : '0.4';
+    delBtn.style.pointerEvents  = n > 0 ? 'auto' : 'none';
+  }
+}
+
+function ptBulkDelete(){
+  const n = ptSelectedIds.size;
+  if(!n) return;
+  const names = [...ptSelectedIds].map(id=>{
+    const p = patients.find(x=>x.id===id);
+    return p ? ptDisplayName(p) : id;
+  });
+  if(!confirm(`Delete ${n} patient${n!==1?'s':''}?\n\n${names.join('\n')}\n\nThis cannot be undone.`)) return;
+  patients = patients.filter(p=>!ptSelectedIds.has(p.id));
+  if(ptSelectedIds.has(currentPatientId)){
+    currentPatientId = null;
+    document.getElementById('pt-detail-panel').style.display = 'none';
+  }
+  ptSelectedIds.clear();
+  ptSelectMode = false;
+  const bar = document.getElementById('pt-bulk-bar');
+  const btn = document.getElementById('pt-select-btn');
+  if(bar) bar.style.display = 'none';
+  if(btn){ btn.style.background='var(--white)'; btn.style.color='var(--muted)'; btn.style.borderColor='var(--border2)'; }
+  ptSave();
+  renderPatientSearchList();
+  showToast(`🗑 ${n} patient${n!==1?'s':''} deleted`);
+}
+
 function renderAlphaNav(list){
   const letters=[...new Set(list.map(p=>(p.lname||'#')[0].toUpperCase()))].sort();
   const nav=document.getElementById('pt-alpha-nav');
@@ -10687,47 +10818,53 @@ function renderPatientGrid(list){
     </div>`;
     return;
   }
-
-  // Group by first letter of last name for alphabet dividers
   const letterGroups = {};
   list.forEach(p=>{
     const letter = (p.lname||'#')[0].toUpperCase();
     if(!letterGroups[letter]) letterGroups[letter]=[];
     letterGroups[letter].push(p);
   });
-
   const letters = Object.keys(letterGroups).sort();
   let html = '';
   letters.forEach(letter=>{
-    // Letter divider — spans full grid width
     html += `<div style="grid-column:1/-1;display:flex;align-items:center;gap:10px;padding:6px 4px 4px;margin-top:4px;">
       <div style="width:28px;height:28px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff;flex-shrink:0;">${letter}</div>
       <div style="flex:1;height:1px;background:var(--border);"></div>
       <span style="font-size:10px;font-weight:600;color:var(--muted2);">${letterGroups[letter].length}</span>
     </div>`;
-    // Patient cards for this letter
     letterGroups[letter].forEach(p=>{
       const unread=ptUnreadComms(p);
-      const openTasks=(p.tasks||[]).filter(t=>t.status!=='done').length;
-      html += `<div class="pt-card ${p.vvip?'vvip':''}" data-letter="${letter}" onclick="selectPatient('${p.id}')">
-      <div class="pt-card-av" style="background:${ptAvatarColor(p)}">${ptInitials(p)}</div>
-      <div style="flex:1;min-width:0;">
-        <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">
-          <div class="pt-card-name">${ptDisplayName(p)}</div>
-          ${p.vvip?'<span style="font-size:9px;font-weight:800;background:#D4A017;color:#fff;padding:1px 6px;border-radius:10px;">⭐</span>':''}
-          ${p.amaraone?'<span style="font-size:9px;font-weight:800;background:#7C3AED;color:#fff;padding:1px 6px;border-radius:10px;">💜</span>':''}
-          ${p.allergySeverity==='severe'||p.allergySeverity==='moderate'?'<span style="font-size:9px;font-weight:800;background:#DC2626;color:#fff;padding:1px 6px;border-radius:10px;">⚠️</span>':''}
-          ${p.region?'<span style="font-size:9px;background:var(--green-pale);color:var(--green);padding:1px 5px;border-radius:8px;font-weight:700;">'+({'UK':'🇬🇧','UAE':'🇦🇪','Global':'🌍'}[p.region]||'')+'</span>':''}
-          ${unread?`<span style="font-size:9px;font-weight:800;background:#DC2626;color:#fff;padding:1px 6px;border-radius:10px;">${unread} new</span>`:''}
+      const openTasks=(state.tasks||[]).filter(t=>t.patientRef===p.id&&t.status!=='done').length + (p.tasks||[]).filter(t=>t.status!=='done').length;
+      const isSelected = ptSelectedIds.has(p.id);
+      const selStyle = ptSelectMode && isSelected ? 'border-color:var(--green) !important;background:var(--green-pale) !important;outline:2px solid var(--green);' : '';
+      html += `<div class="pt-card ${p.vvip?'vvip':''}" data-letter="${letter}"
+        style="${selStyle}"
+        onclick="${ptSelectMode ? `ptCardClick('${p.id}')` : `selectPatient('${p.id}')`}">
+        ${ptSelectMode ? `<div onclick="event.stopPropagation();" style="flex-shrink:0;display:flex;align-items:flex-start;padding-top:2px;padding-right:6px;">
+          <input type="checkbox" class="pt-select-cb" data-id="${p.id}"
+            ${isSelected ? 'checked' : ''}
+            onchange="ptToggleSelect('${p.id}',this.checked)"
+            onclick="event.stopPropagation()"
+            style="width:18px;height:18px;accent-color:var(--green);cursor:pointer;margin-top:2px;">
+        </div>` : ''}
+        <div class="pt-card-av" style="background:${ptAvatarColor(p)}">${ptInitials(p)}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">
+            <div class="pt-card-name">${ptDisplayName(p)}</div>
+            ${p.vvip ? '<span style="font-size:9px;font-weight:800;background:#D4A017;color:#fff;padding:1px 6px;border-radius:10px;">⭐</span>' : ''}
+            ${p.amaraone ? '<span style="font-size:9px;font-weight:800;background:#7C3AED;color:#fff;padding:1px 6px;border-radius:10px;">💜</span>' : ''}
+            ${p.allergySeverity==='severe'||p.allergySeverity==='moderate' ? '<span style="font-size:9px;font-weight:800;background:#DC2626;color:#fff;padding:1px 6px;border-radius:10px;">⚠️</span>' : ''}
+            ${p.region ? '<span style="font-size:9px;background:var(--green-pale);color:var(--green);padding:1px 5px;border-radius:8px;font-weight:700;">' + ({'UK':'🇬🇧','UAE':'🇦🇪','Global':'🌍'}[p.region]||'') + '</span>' : ''}
+            ${unread ? `<span style="font-size:9px;font-weight:800;background:#DC2626;color:#fff;padding:1px 6px;border-radius:10px;">${unread} new</span>` : ''}
+          </div>
+          <div class="pt-card-sub">${p.physician||'No physician'}${p.dob?' · '+ptFormatDob(p.dob):''}</div>
+          <div class="pt-card-sub" style="margin-top:2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+            ${p.emr ? `<span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:6px;background:${p.emr==='Helix'?'#EBF4FD':p.emr==='Carebit'?'#F0FDF4':'#F3F4F6'};color:${p.emr==='Helix'?'#2176C7':p.emr==='Carebit'?'#065F46':'#6B7280'};">${p.emr}</span>` : ''}
+            <span>${p.phone||''}</span>
+            ${openTasks ? `<span style="color:var(--green);font-weight:700;">${openTasks} task${openTasks!==1?'s':''} open</span>` : ''}
+          </div>
         </div>
-        <div class="pt-card-sub">${p.physician||'No physician'}${p.dob?' · '+ptFormatDob(p.dob):''}</div>
-        <div class="pt-card-sub" style="margin-top:2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-          ${p.emr?`<span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:6px;background:${p.emr==='Helix'?'#EBF4FD':p.emr==='Carebit'?'#F0FDF4':'#F3F4F6'};color:${p.emr==='Helix'?'#2176C7':p.emr==='Carebit'?'#065F46':'#6B7280'};">${p.emr}</span>`:''}
-          <span>${p.phone||''}</span>
-          ${openTasks?`<span style="color:var(--green);font-weight:700;">${openTasks} task${openTasks!==1?'s':''} open</span>`:''}
-        </div>
-      </div>
-    </div>`;
+      </div>`;
     });
   });
   grid.innerHTML = html;
@@ -11818,6 +11955,11 @@ function renderPmRelations(){
 function openPatientModal(id){
   ptEditingId=id;
   _pmRelations=[];
+  // Reset duplicate warning
+  const dw=document.getElementById('pm-dupe-warn');
+  if(dw) dw.style.display='none';
+  const ds=document.getElementById('pm-save-anyway-btn');
+  if(ds) ds.style.display='none';
   document.getElementById('patient-modal-title').textContent=id?'✏️ Edit patient':'🏥 Create new patient';
   document.getElementById('pm-delete-btn').style.display=id?'block':'none';
   const p=id?patients.find(x=>x.id===id):null;
@@ -11855,6 +11997,41 @@ function savePatient(){
   const fname=document.getElementById('pm-fname').value.trim();
   const lname=document.getElementById('pm-lname').value.trim();
   if(!fname||!lname){ showToast('First and last name required'); return; }
+
+  const dob   = document.getElementById('pm-dob').value;
+  const phone = document.getElementById('pm-phone').value.trim();
+  const email = document.getElementById('pm-email').value.trim();
+
+  // ── Duplicate check (only for new patients) ──
+  if(!ptEditingId){
+    const nameLower = (fname+' '+lname).toLowerCase();
+    const dupe = patients.find(p=>{
+      const pName = (p.fname+' '+p.lname).toLowerCase();
+      if(pName !== nameLower) return false;           // name must match
+      if(dob   && p.dob   && dob   === p.dob)   return true;  // same name + DOB
+      if(phone  && p.phone  && phone  === p.phone)  return true;  // same name + phone
+      if(email  && p.email  && email  === p.email)  return true;  // same name + email
+      if(!dob && !phone && !email) return true;       // name only, no other info
+      return false;
+    });
+    if(dupe){
+      showToast(`⚠️ ${ptDisplayName(dupe)} already exists — check for duplicates`, 4000);
+      // Highlight the duplicate in the modal with a warning
+      const warn = document.getElementById('pm-dupe-warn');
+      if(warn){
+        document.getElementById('pm-dupe-warn-text').textContent = `A patient named "${ptDisplayName(dupe)}" already exists (DOB: ${dupe.dob||'—'}, Phone: ${dupe.phone||'—'}). Save anyway?`;
+        warn.style.display = 'block';
+        document.getElementById('pm-save-anyway-btn').style.display = 'inline-flex';
+      }
+      return;
+    }
+  }
+  _doSavePatient();
+}
+
+function _doSavePatient(){
+  const fname=document.getElementById('pm-fname').value.trim();
+  const lname=document.getElementById('pm-lname').value.trim();
   const data={
     title:    document.getElementById('pm-title').value,
     fname, lname,
@@ -11873,6 +12050,7 @@ function savePatient(){
     amaraone: document.getElementById('pm-amaraone').checked,
     relations:[..._pmRelations],
   };
+  const isNew = !ptEditingId;
   if(ptEditingId){
     const idx=patients.findIndex(x=>x.id===ptEditingId);
     if(idx>-1){ patients[idx]={...patients[idx],...data,updated:ptNow()}; if(currentPatientId===ptEditingId) selectPatient(ptEditingId); }
@@ -11881,8 +12059,20 @@ function savePatient(){
     patients.push(np); currentPatientId=np.id;
   }
   ptSave(); renderPatientSearchList();
-  if(currentPatientId&&!ptEditingId) selectPatient(currentPatientId);
-  closeModal('patient-modal'); showToast(ptEditingId?'Patient updated':'Patient created');
+  if(currentPatientId&&isNew) selectPatient(currentPatientId);
+  closeModal('patient-modal');
+  // Toast: updated OR "added under Dr X"
+  if(!isNew){
+    showToast('Patient updated ✓');
+  } else {
+    const savedP = patients.find(x=>x.id===currentPatientId);
+    const drName = savedP?.physician;
+    if(drName){
+      showToast(`✅ ${ptDisplayName(savedP)} added under the care of Dr ${drName}`, 4000);
+    } else {
+      showToast(`✅ ${ptDisplayName(savedP)} added to patients`, 3000);
+    }
+  }
   const savedP=patients.find(x=>x.id===(ptEditingId||currentPatientId));
   if(savedP&&typeof ensurePatientBirthdayReminder==='function') ensurePatientBirthdayReminder(savedP);
   ptSave();
