@@ -804,6 +804,19 @@ div:hover > .complete-tooltip { opacity: 1 !important; }
 
   /* ── Overdue log badge button ── */
   #overdue-log-badge-btn { padding: 5px 8px !important; }
+
+  /* ── Patient search suggestions — slide up from bottom on mobile ── */
+  #pt-suggestions {
+    position: fixed !important;
+    left: 10px !important;
+    right: 10px !important;
+    bottom: 80px !important;
+    top: auto !important;
+    max-height: 55vh !important;
+    z-index: 500 !important;
+    border-radius: 12px !important;
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.18) !important;
+  }
 }
 
 /* ══════════════════════════════════════════════════════
@@ -4617,7 +4630,7 @@ function renderKanban(tasks){
         ? cTasks.filter(t=>!t.assignee || (!state.team.find(tm=>tm.id===t.assignee||tm.name===t.assignee)))
         : cTasks.filter(t=>t.assignee===m.id || t.assignee===m.name);
       if(!mTasks.length) return '';
-      return `<div style="flex:1;min-width:160px;max-width:240px;border-right:0.5px solid var(--border);">
+      return `<div style="flex:1;min-width:${window.innerWidth<=768?'100%':'160px'};max-width:${window.innerWidth<=768?'100%':'240px'};border-right:${window.innerWidth<=768?'none':'0.5px solid var(--border)'};border-bottom:${window.innerWidth<=768?'1px solid var(--border)':'none'};">
         <div style="display:flex;align-items:center;gap:7px;padding:8px 10px 7px;border-bottom:2px solid ${m.color};background:${m.color}12;">
           <div style="width:22px;height:22px;border-radius:50%;background:${m.color};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#fff;flex-shrink:0;">${INITIALS(m.name)}</div>
           <span style="font-size:11px;font-weight:700;color:${m.color};">${m.name}</span>
@@ -4633,7 +4646,8 @@ function renderKanban(tasks){
             const dueColor = isOverdue(t.due)&&!isDone?'#DC2626':isTodayDate(t.due)?'var(--green)':'var(--muted2)';
             const dueLabel = t.due ? (isOverdue(t.due)&&!isDone ? `⚠ ${fmtDisplay(parseDate(t.due))}` : isTodayDate(t.due) ? 'Today' : fmtDisplay(parseDate(t.due))) : '';
             const ab = (extra='') => `font-family:Manrope,sans-serif;width:24px;height:24px;border-radius:50%;border:1.5px solid var(--border);background:var(--white);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:all 0.12s;flex-shrink:0;padding:0;${extra}`;
-            return `<div style="background:var(--bg);border:0.5px solid var(--border);border-left:3px solid ${m.color};border-radius:6px;padding:8px 10px;margin-bottom:4px;${isDone?'opacity:0.6;':''}">
+            return `<div onclick="openTaskModal('${t.id}')" style="background:var(--bg);border:0.5px solid var(--border);border-left:3px solid ${m.color};border-radius:6px;padding:8px 10px;margin-bottom:4px;cursor:pointer;transition:background 0.1s;${isDone?'opacity:0.6;':''}"
+              onmouseover="this.style.background='var(--green-pale)'" onmouseout="this.style.background='var(--bg)'">
               <!-- Title + patient -->
               <div style="font-size:11px;font-weight:700;color:var(--text);line-height:1.3;margin-bottom:${ptName?'1':'3'}px;">${t.title}</div>
               ${ptName?`<div style="font-size:10px;font-weight:600;color:var(--green);margin-bottom:4px;cursor:pointer;text-decoration:underline;text-underline-offset:2px;" title="Open patient file" onclick="event.stopPropagation();openPatientFromTask('${pt.id}')">🏥 ${ptName}</div>`:''}
@@ -4667,7 +4681,7 @@ function renderKanban(tasks){
         <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:${cat.color}18;color:${cat.color}">${cTasks.length} task${cTasks.length!==1?'s':''}</span>
       </div>
       ${personCols
-        ? `<div style="display:flex;flex-wrap:wrap;gap:0;overflow-x:auto;">${personCols}</div>`
+        ? `<div style="display:flex;flex-direction:${window.innerWidth<=768?'column':'row'};flex-wrap:${window.innerWidth<=768?'nowrap':'wrap'};gap:0;overflow-x:${window.innerWidth<=768?'visible':'auto'};">${personCols}</div>`
         : `<div class="empty" style="padding:20px;"><div class="empty-icon" style="font-size:20px;">📭</div><p>No ${cat.name.toLowerCase()} tasks</p></div>`
       }
     </div>`;
@@ -6130,11 +6144,11 @@ function renderTasks(){
   const tcd = document.getElementById('tc-completed');
   if(tcd) tcd.textContent = state.tasks.filter(t=>t.status==='done').length;
 
-  // Kanban/swim toggle: only show for new tab (board view)
+  // Kanban/swim toggle: show for new and all board views
   const swimToggle = document.getElementById('kanban-swim-toggle');
-  if(swimToggle) swimToggle.style.display = _allTasksTab==='new' ? 'flex' : 'none';
+  if(swimToggle) swimToggle.style.display = (_allTasksTab==='new'||_allTasksTab==='all') ? 'flex' : 'none';
 
-  if(_allTasksTab==='new'){
+  if(_allTasksTab==='new' || _allTasksTab==='all'){
     // Board view — Kanban or Swimlane
     if(state.taskView==='kanban') renderKanban(tasks);
     else renderSwimLane(tasks);
@@ -6168,7 +6182,121 @@ function renderTaskListView(tasks){
 
   // ── ALL TASKS tab: group by CATEGORY (wider, category-first view) ──
   if(_allTasksTab==='all'){
-    // Define the preferred category order
+
+    // ── By Assignee mode: one card per team member, tasks within show category ──
+    if(_allTasksGroupBy === 'assignee'){
+      const asnGroups = {};
+      tasks.forEach(t=>{
+        const key = t.assignee||'__unassigned__';
+        if(!asnGroups[key]) asnGroups[key]=[];
+        asnGroups[key].push(t);
+      });
+      // Sort members alphabetically, unassigned last
+      const asnKeys = Object.keys(asnGroups).sort((a,b)=>{
+        if(a==='__unassigned__') return 1;
+        if(b==='__unassigned__') return -1;
+        return (getMember(a)?.name||'').localeCompare(getMember(b)?.name||'');
+      });
+
+      const asnGroupHTML = asnKeys.map(memberId=>{
+        const member = getMember(memberId);
+        const mName  = member?.name||'Unassigned';
+        const mColor = member?.color||'#9AB5A8';
+        const mTasks = asnGroups[memberId];
+
+        // Within this member, group by category
+        const catSubGroups = {};
+        mTasks.forEach(t=>{
+          const key = t.category||'__other__';
+          const cat = getCat(t.category);
+          if(!catSubGroups[key]) catSubGroups[key]={cat, tasks:[]};
+          catSubGroups[key].tasks.push(t);
+        });
+        const CAT_ORDER = ['concierge','admin','business development','personal'];
+        const catKeys = Object.keys(catSubGroups).sort((a,b)=>{
+          const nA=(getCat(a).name||'').toLowerCase(), nB=(getCat(b).name||'').toLowerCase();
+          const ai=CAT_ORDER.indexOf(nA), bi=CAT_ORDER.indexOf(nB);
+          if(ai>-1&&bi>-1) return ai-bi; if(ai>-1) return -1; if(bi>-1) return 1;
+          return nA.localeCompare(nB);
+        });
+
+        const subHTML = catKeys.map(catKey=>{
+          const {cat, tasks:cTasks} = catSubGroups[catKey];
+          const rows = cTasks.map((t,i,arr)=>{
+            const dueStr = t.due ? fmtDisplay(parseDate(t.due)) : '—';
+            const dueCol = isOverdue(t.due)&&t.status!=='done' ? '#DC2626' : isTodayDate(t.due) ? 'var(--green)' : 'var(--muted)';
+            const ptRef = t.patientRef ? patients.find(x=>x.id===t.patientRef) : null;
+            const drs = (t.doctors||[]).map(id=>getDoctor(id)).filter(Boolean);
+            const lastThread = (t.thread||[]).filter(m=>!m._isChecklist).slice(-1)[0];
+            return `<div style="border-bottom:${i<arr.length-1?'1px solid var(--border)':'none'};">
+              <div onclick="openTaskModal('${t.id}')" style="display:grid;grid-template-columns:2fr 100px 90px 90px 44px;padding:8px 16px;gap:8px;cursor:pointer;align-items:center;transition:background 0.1s;" onmouseover="this.style.background='var(--green-pale)'" onmouseout="this.style.background='transparent'">
+                <div style="min-width:0;">
+                  <div style="font-size:11px;font-weight:700;color:var(--text);border-left:3px solid ${cat.color};padding-left:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${t.status==='done'?'text-decoration:line-through;opacity:0.5;':''}">${t.title}</div>
+                  ${ptRef?`<div style="font-size:10px;font-weight:600;color:var(--green);padding-left:11px;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;text-decoration:underline;text-underline-offset:2px;" onclick="event.stopPropagation();openPatientFromTask('${ptRef.id}')">${ptDisplayName(ptRef)}</div>`:''}
+                  <div style="padding-left:11px;margin-top:2px;"><span class="tag" style="background:${STATUS_BG[t.status]};color:${STATUS_COLORS[t.status]}">${STATUS_LABELS[t.status]}</span>${drs.length?`<span style="font-size:9px;color:var(--muted);margin-left:4px;">🩺 ${drs.map(d=>d.name).join(', ')}</span>`:''}</div>
+                </div>
+                <div><span class="tag" style="background:${PRI_BG[t.priority]};color:${PRI_COLORS[t.priority]}">${PRI_LABELS[t.priority]}</span></div>
+                <div style="font-size:11px;font-weight:600;color:${dueCol};white-space:nowrap;">${isOverdue(t.due)&&t.status!=='done'?'⚠ ':''}${dueStr}</div>
+                <div style="font-size:10px;color:var(--muted);">
+                  <span style="cursor:pointer;" onclick="event.stopPropagation();const cb=document.getElementById('cmtbox2-${t.id}');if(cb){cb.style.display=cb.style.display==='none'?'block':'none';}">${(t.thread||[]).filter(m=>!m._isChecklist).length>0?`💬 ${(t.thread||[]).filter(m=>!m._isChecklist).length}`:'💬'}</span>
+                </div>
+                <div onclick="event.stopPropagation();" style="display:flex;align-items:center;justify-content:center;">
+                  ${t.status==='done'
+                    ? `<div title="Completed" style="width:22px;height:22px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;"><span style="color:#fff;font-size:12px;font-weight:800;">✓</span></div>`
+                    : `<div onclick="markDone('${t.id}',event)" title="Mark complete" style="width:22px;height:22px;border-radius:50%;border:2px solid var(--border2);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.15s;" onmouseenter="this.style.borderColor='var(--green)';this.style.background='var(--green)';this.querySelector('span').style.opacity='1'" onmouseleave="this.style.borderColor='var(--border2)';this.style.background='transparent';this.querySelector('span').style.opacity='0'"><span style="color:#fff;font-size:12px;font-weight:800;opacity:0;transition:opacity 0.15s;">✓</span></div>`
+                  }
+                </div>
+              </div>
+              <div id="cmtbox2-${t.id}" style="display:none;padding:6px 16px 8px;border-top:1px dashed var(--border);" onclick="event.stopPropagation()">
+                ${lastThread?`<div style="font-size:10px;color:var(--muted);padding:2px 0 4px;"><span style="font-weight:700;color:var(--green-mid);">${lastThread.authorName||lastThread.author||'Team'}:</span> ${lastThread.text||''}</div>`:''}
+                <div style="display:flex;gap:4px;margin-top:2px;">
+                  <input class="task-comment-inp" id="cmt-inp2-${t.id}" placeholder="Add a comment…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();postTaskInlineComment('${t.id}');}">
+                  <button class="task-comment-send" onclick="postTaskInlineComment('${t.id}')">↑</button>
+                </div>
+              </div>
+            </div>`;
+          }).join('');
+          return `<div style="border-bottom:1px solid ${cat.color}18;">
+            <div style="padding:5px 16px;background:${cat.color}0a;border-bottom:1px solid ${cat.color}20;display:flex;align-items:center;gap:6px;">
+              <div style="width:7px;height:7px;border-radius:2px;background:${cat.color};flex-shrink:0;"></div>
+              <span style="font-size:10px;font-weight:800;color:${cat.color};text-transform:uppercase;letter-spacing:0.05em;">${cat.name}</span>
+              <span style="font-size:9px;font-weight:700;background:${cat.color};color:#fff;padding:0 6px;border-radius:8px;">${cTasks.length}</span>
+            </div>
+            <div style="display:grid;grid-template-columns:2fr 100px 90px 90px 44px;padding:4px 16px;background:#FAFCFB;border-bottom:1px solid var(--border);gap:8px;">
+              ${['Task','Priority','Due','💬',''].map(h=>`<div style="font-size:8px;font-weight:800;letter-spacing:0.07em;text-transform:uppercase;color:var(--muted2)">${h}</div>`).join('')}
+            </div>
+            ${rows}
+          </div>`;
+        }).join('');
+
+        return `<div style="margin-bottom:12px;background:var(--white);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow);">
+          <div style="padding:9px 16px;background:${mColor}12;border-bottom:1px solid ${mColor}30;display:flex;align-items:center;gap:8px;">
+            <div class="ap-trigger"
+              onclick="event.stopPropagation();showAssigneePopup(event,'${memberId}')"
+              onmouseenter="clearTimeout(window._apHideTimer);showAssigneePopup(event,'${memberId}')"
+              onmouseleave="scheduleHideAssigneePopup()"
+              style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:2px 8px 2px 2px;border-radius:20px;transition:background 0.15s;"
+              onmouseover="this.style.background='${mColor}22'" onmouseout="this.style.background='transparent'">
+              <div style="width:28px;height:28px;border-radius:50%;background:${mColor};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#fff;">${INITIALS(mName)}</div>
+              <span style="font-size:13px;font-weight:800;color:var(--text);">${mName}</span>
+            </div>
+            <span style="font-size:10px;font-weight:700;background:${mColor};color:#fff;padding:1px 8px;border-radius:10px;">${mTasks.length} task${mTasks.length!==1?'s':''}</span>
+            <div style="margin-left:auto;display:flex;gap:4px;flex-wrap:wrap;">
+              ${catKeys.map(k=>{const c=catSubGroups[k].cat;return `<span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:8px;background:${c.color}18;color:${c.color};">${c.name} ${catSubGroups[k].tasks.length}</span>`;}).join('')}
+            </div>
+          </div>
+          ${subHTML}
+        </div>`;
+      }).join('');
+
+      el.innerHTML = `<div style="padding-top:2px;">
+        <div style="font-size:11px;font-weight:800;color:var(--green);letter-spacing:-0.01em;margin-bottom:10px;">📑 All Tasks — by Lead <span style="font-size:10px;font-weight:400;color:var(--muted);">${tasks.length} task${tasks.length!==1?'s':''}</span></div>
+        ${asnGroupHTML}
+      </div>`;
+      return;
+    }
+
+    // ── By Category mode (default) ──
     const CAT_ORDER = ['concierge','admin','business development','personal'];
     const groups = {};
     tasks.forEach(t=>{
@@ -7413,6 +7541,7 @@ document.querySelectorAll('.modal-overlay').forEach(el=>{
 
 // ── ALL TASKS TABLE ──────────────────────────────────────
 let _allTasksTab = 'all'; // 'new' | 'today' | 'all' | 'upcoming' | 'completed'
+let _allTasksGroupBy = 'category'; // 'category' | 'assignee' — only for 'all' tab
 
 function toggleMyTasks(){
   window._myTasksFilter=!window._myTasksFilter;
@@ -7435,20 +7564,27 @@ function setAllTasksTab(tab){
     const btn = document.getElementById('at-tab-'+t);
     if(btn) btn.classList.toggle('active', t===tab);
   });
-  // Kanban/Swim toggle only for 'new' board view
+  // Show group-by sub-toggle only on 'all' tab
+  const grpToggle = document.getElementById('at-grp-toggle');
+  if(grpToggle) grpToggle.style.display = tab==='all' ? 'inline-flex' : 'none';
+  // Kanban/swim toggle: show for 'new' and 'all' board views
   const swimToggle = document.getElementById('kanban-swim-toggle');
-  if(swimToggle) swimToggle.style.display = tab==='new' ? 'flex' : 'none';
+  if(swimToggle) swimToggle.style.display = (tab==='new'||tab==='all') ? 'flex' : 'none';
   // Keep completed count fresh
   const tc = document.getElementById('tc-completed');
   if(tc) tc.textContent = state.tasks.filter(t=>t.status==='done').length;
   renderTasks();
 }
 
-function renderAllTasksSection(){
-  // Just keep the completed badge count up to date — rendering is now done via renderTasks
-  const tc = document.getElementById('tc-completed');
-  if(tc) tc.textContent = state.tasks.filter(t=>t.status==='done').length;
+function setAllTasksGroupBy(mode){
+  _allTasksGroupBy = mode;
+  const btnCat = document.getElementById('at-grp-cat');
+  const btnAsn = document.getElementById('at-grp-asn');
+  if(btnCat) btnCat.classList.toggle('active', mode==='category');
+  if(btnAsn) btnAsn.classList.toggle('active', mode==='assignee');
+  renderTasks();
 }
+
 
 function renderAllTasks(){
   const catSel = document.getElementById('all-f-cat');
@@ -9787,12 +9923,14 @@ document.addEventListener('click', e=>{
       <div style="display:flex;gap:8px;align-items:center;">
         <div style="position:relative;flex:1;min-width:0;">
           <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none;">🔍</span>
-          <input id="pt-search" oninput="renderPatientSearchList()"
+          <input id="pt-search" oninput="renderPatientSearchList();renderPatientSuggestions()"
             placeholder="Search by name, DOB, contact…"
             title="Search by first name, last name, date of birth (DD/MM/YYYY), phone, email or notes"
             style="font-family:'Manrope',sans-serif;font-size:13px;font-weight:500;width:100%;padding:10px 12px 10px 34px;border-radius:8px;border:2px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.15);color:#fff;outline:none;transition:border-color 0.15s;box-sizing:border-box;"
-            onfocus="this.style.borderColor='rgba(255,255,255,0.7)'" onblur="this.style.borderColor='rgba(255,255,255,0.3)'"
+            onfocus="this.style.borderColor='rgba(255,255,255,0.7)';renderPatientSuggestions()" onblur="setTimeout(()=>hidePtSuggestions(),200)"
           >
+          <!-- Live suggestion dropdown -->
+          <div id="pt-suggestions" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.18);z-index:400;max-height:280px;overflow-y:auto;border:1px solid var(--border);"></div>
         </div>
         <!-- Filter toggle button -->
         <button onclick="ptToggleFilters()" id="pt-filter-btn"
@@ -10392,7 +10530,7 @@ function ptUpdateFilterBadge(){
 function renderPatientSearchList(){
   const search = (document.getElementById('pt-search')||{}).value||'';
   const fPhysician = (document.getElementById('pt-f-physician')||{}).value||'';
-  const fField = (document.getElementById('pt-f-field')||{}).value||'fname';
+  const fField = (document.getElementById('pt-f-field')||{}).value||'all';
   const fFlag = (document.getElementById('pt-f-flag')||{}).value||'';
   const fRegion = (document.getElementById('pt-f-region')||{}).value||'';
   const fEmr = (document.getElementById('pt-f-emr')||{}).value||'';
@@ -10413,7 +10551,15 @@ function renderPatientSearchList(){
       if(fField==='lname')   return (p.lname||'').toLowerCase().includes(sl);
       if(fField==='dob')     return (p.dob||'').includes(sl);
       if(fField==='contact') return (p.phone||'').toLowerCase().includes(sl)||(p.email||'').toLowerCase().includes(sl);
-      return true;
+      // default 'all': search across all key fields including full name
+      return (p.fname||'').toLowerCase().includes(sl)
+          || (p.lname||'').toLowerCase().includes(sl)
+          || ptDisplayName(p).toLowerCase().includes(sl)
+          || (p.dob||'').includes(sl)
+          || (p.phone||'').toLowerCase().includes(sl)
+          || (p.email||'').toLowerCase().includes(sl)
+          || (p.physician||'').toLowerCase().includes(sl)
+          || (p.notes||'').toLowerCase().includes(sl);
     });
   }
   if(fPhysician) list=list.filter(p=>p.physician===fPhysician);
@@ -10435,6 +10581,58 @@ function renderPatientSearchList(){
   renderAlphaNav(list);
   renderPatientGrid(list);
 }
+
+function hidePtSuggestions(){
+  const s=document.getElementById('pt-suggestions');
+  if(s) s.style.display='none';
+  const inp=document.getElementById('pt-search');
+  if(inp) inp.style.borderColor='rgba(255,255,255,0.3)';
+}
+
+function renderPatientSuggestions(){
+  const box=document.getElementById('pt-suggestions');
+  if(!box) return;
+  const inp=document.getElementById('pt-search');
+  const raw=(inp&&inp.value)||'';
+  const sl=raw.trim().toLowerCase();
+  if(!sl){ box.style.display='none'; return; }
+
+  const matched=patients.filter(p=>{
+    return (p.fname||'').toLowerCase().includes(sl)
+        || (p.lname||'').toLowerCase().includes(sl)
+        || ptDisplayName(p).toLowerCase().includes(sl)
+        || (p.dob||'').includes(sl)
+        || (p.phone||'').toLowerCase().includes(sl)
+        || (p.email||'').toLowerCase().includes(sl)
+        || (p.physician||'').toLowerCase().includes(sl);
+  }).slice(0,8);
+
+  if(!matched.length){
+    box.innerHTML=`<div style="padding:14px 16px;font-size:12px;color:var(--muted);text-align:center;">No patients found for "<b>${raw}</b>"</div>`;
+    box.style.display='block';
+    return;
+  }
+
+  box.innerHTML=matched.map((p,i)=>{
+    const name=ptDisplayName(p);
+    // Bold-highlight matched part
+    const reg=new RegExp('('+sl.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi');
+    const boldName=name.replace(reg,'<b>$1</b>');
+    const sub=[p.physician,p.dob?ptFormatDob(p.dob):'',p.phone].filter(Boolean).join(' · ');
+    return `<div onclick="hidePtSuggestions();selectPatient('${p.id}')"
+      style="display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;border-bottom:${i<matched.length-1?'1px solid var(--border)':'none'};transition:background 0.1s;"
+      onmouseover="this.style.background='var(--green-pale)'" onmouseout="this.style.background='#fff'">
+      <div style="width:32px;height:32px;border-radius:50%;background:${ptAvatarColor(p)};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;flex-shrink:0;">${ptInitials(p)}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:12px;font-weight:600;color:var(--text);">${boldName}${p.vvip?' ⭐':''}</div>
+        <div style="font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${sub}</div>
+      </div>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--muted2)" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>`;
+  }).join('');
+  box.style.display='block';
+}
+
 
 function renderAlphaNav(list){
   const letters=[...new Set(list.map(p=>(p.lname||'#')[0].toUpperCase()))].sort();
@@ -10471,10 +10669,29 @@ function renderPatientGrid(list){
     </div>`;
     return;
   }
-  grid.innerHTML = list.map(p=>{
-    const unread=ptUnreadComms(p);
-    const openTasks=(p.tasks||[]).filter(t=>t.status!=='done').length;
-    return `<div class="pt-card ${p.vvip?'vvip':''}" data-letter="${(p.lname||'#')[0].toUpperCase()}" onclick="selectPatient('${p.id}')">
+
+  // Group by first letter of last name for alphabet dividers
+  const letterGroups = {};
+  list.forEach(p=>{
+    const letter = (p.lname||'#')[0].toUpperCase();
+    if(!letterGroups[letter]) letterGroups[letter]=[];
+    letterGroups[letter].push(p);
+  });
+
+  const letters = Object.keys(letterGroups).sort();
+  let html = '';
+  letters.forEach(letter=>{
+    // Letter divider — spans full grid width
+    html += `<div style="grid-column:1/-1;display:flex;align-items:center;gap:10px;padding:6px 4px 4px;margin-top:4px;">
+      <div style="width:28px;height:28px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff;flex-shrink:0;">${letter}</div>
+      <div style="flex:1;height:1px;background:var(--border);"></div>
+      <span style="font-size:10px;font-weight:600;color:var(--muted2);">${letterGroups[letter].length}</span>
+    </div>`;
+    // Patient cards for this letter
+    letterGroups[letter].forEach(p=>{
+      const unread=ptUnreadComms(p);
+      const openTasks=(p.tasks||[]).filter(t=>t.status!=='done').length;
+      html += `<div class="pt-card ${p.vvip?'vvip':''}" data-letter="${letter}" onclick="selectPatient('${p.id}')">
       <div class="pt-card-av" style="background:${ptAvatarColor(p)}">${ptInitials(p)}</div>
       <div style="flex:1;min-width:0;">
         <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">
@@ -10493,7 +10710,9 @@ function renderPatientGrid(list){
         </div>
       </div>
     </div>`;
-  }).join('');
+    });
+  });
+  grid.innerHTML = html;
 }
 
 // ── SELECT PATIENT (open fullscreen detail) ──────────
