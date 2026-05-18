@@ -1120,6 +1120,11 @@ div:hover > .complete-tooltip { opacity: 1 !important; }
         <button class="vt-btn"        id="at-tab-new"       onclick="setAllTasksTab('new')">New</button>
         <button class="vt-btn"        id="at-tab-today"     onclick="setAllTasksTab('today')">📌 Today</button>
         <button class="vt-btn active" id="at-tab-all"       onclick="setAllTasksTab('all')">All tasks</button>
+        <!-- List/Board sub-toggle — only shown on 'all' tab -->
+        <span id="at-view-toggle" style="display:none;background:transparent;border-left:1px solid var(--border2);margin-left:1px;padding-left:2px;">
+          <button class="vt-btn active" id="at-view-list"  onclick="setAllTasksView('list')"  title="Category list view">📋 List</button>
+          <button class="vt-btn"        id="at-view-board" onclick="setAllTasksView('board')" title="Kanban board view">⬜ Board</button>
+        </span>
         <button class="vt-btn"        id="at-tab-upcoming"  onclick="setAllTasksTab('upcoming')">📅 Upcoming</button>
         <button class="vt-btn"        id="at-tab-completed" onclick="setAllTasksTab('completed')">✅ <span id="tc-completed" style="font-size:9px;font-weight:700;background:#DCFCE7;color:#16A34A;padding:1px 5px;border-radius:8px;">0</span></button>
       </div>
@@ -6144,16 +6149,16 @@ function renderTasks(){
   const tcd = document.getElementById('tc-completed');
   if(tcd) tcd.textContent = state.tasks.filter(t=>t.status==='done').length;
 
-  // Kanban/swim toggle: show for new and all board views
+  // Kanban/swim toggle: show for 'new', and for 'all' in board mode
   const swimToggle = document.getElementById('kanban-swim-toggle');
-  if(swimToggle) swimToggle.style.display = (_allTasksTab==='new'||_allTasksTab==='all') ? 'flex' : 'none';
+  if(swimToggle) swimToggle.style.display = (_allTasksTab==='new' || (_allTasksTab==='all' && _allTasksView==='board')) ? 'flex' : 'none';
 
-  if(_allTasksTab==='new' || _allTasksTab==='all'){
+  if(_allTasksTab==='new' || (_allTasksTab==='all' && _allTasksView==='board')){
     // Board view — Kanban or Swimlane
     if(state.taskView==='kanban') renderKanban(tasks);
     else renderSwimLane(tasks);
   } else {
-    // List view — same grouped-by-assignee style for all, upcoming, completed
+    // List view — category-grouped for 'all', assignee-grouped for others
     renderTaskListView(tasks);
   }
 }
@@ -7541,7 +7546,8 @@ document.querySelectorAll('.modal-overlay').forEach(el=>{
 
 // ── ALL TASKS TABLE ──────────────────────────────────────
 let _allTasksTab = 'all'; // 'new' | 'today' | 'all' | 'upcoming' | 'completed'
-let _allTasksGroupBy = 'category'; // 'category' | 'assignee' — only for 'all' tab
+let _allTasksGroupBy = 'category'; // 'category' | 'assignee' — only for 'all' tab list view
+let _allTasksView = 'list'; // 'list' | 'board' — only for 'all' tab
 
 function toggleMyTasks(){
   window._myTasksFilter=!window._myTasksFilter;
@@ -7564,15 +7570,27 @@ function setAllTasksTab(tab){
     const btn = document.getElementById('at-tab-'+t);
     if(btn) btn.classList.toggle('active', t===tab);
   });
-  // Show group-by sub-toggle only on 'all' tab
-  const grpToggle = document.getElementById('at-grp-toggle');
-  if(grpToggle) grpToggle.style.display = tab==='all' ? 'inline-flex' : 'none';
-  // Kanban/swim toggle: show for 'new' and 'all' board views
+  // Show List/Board toggle only on 'all' tab
+  const viewToggle = document.getElementById('at-view-toggle');
+  if(viewToggle) viewToggle.style.display = tab==='all' ? 'inline-flex' : 'none';
+  // Kanban/swim toggle: show for 'new', and for 'all' when in board mode
   const swimToggle = document.getElementById('kanban-swim-toggle');
-  if(swimToggle) swimToggle.style.display = (tab==='new'||tab==='all') ? 'flex' : 'none';
+  if(swimToggle) swimToggle.style.display = (tab==='new' || (tab==='all' && _allTasksView==='board')) ? 'flex' : 'none';
   // Keep completed count fresh
   const tc = document.getElementById('tc-completed');
   if(tc) tc.textContent = state.tasks.filter(t=>t.status==='done').length;
+  renderTasks();
+}
+
+function setAllTasksView(mode){
+  _allTasksView = mode;
+  const btnList  = document.getElementById('at-view-list');
+  const btnBoard = document.getElementById('at-view-board');
+  if(btnList)  btnList.classList.toggle('active',  mode==='list');
+  if(btnBoard) btnBoard.classList.toggle('active', mode==='board');
+  // Show kanban/swim toggle only when in board mode
+  const swimToggle = document.getElementById('kanban-swim-toggle');
+  if(swimToggle) swimToggle.style.display = mode==='board' ? 'flex' : 'none';
   renderTasks();
 }
 
