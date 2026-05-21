@@ -3370,7 +3370,7 @@ function openBillingModal(taskId){
   const concierge = state.tasks.filter(t=>t.category==='concierge'&&t.status!=='done');
   sel.innerHTML = '<option value="">— Select task —</option>' +
     concierge.map(t=>`<option value="${t.id}" ${t.id===taskId?'selected':''}>${t.title}</option>`).join('');
-  rtText('billing-notes')='';
+  rtSet('billing-notes', '');
   selectArrangement('internal');
   updateBillingContext();
   openModal('billing-modal');
@@ -4648,8 +4648,8 @@ function markDoneFromModal(taskId){
 
 function doneCheckbox(taskId){
   return `<div onclick="markDone('${taskId}',event)" title="Mark as complete"
-    style="width:16px;height:16px;border-radius:50%;border:2px solid var(--border2);flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;background:var(--white);"
-    onmouseover="this.style.borderColor='var(--green)';this.style.background='var(--green-pale)'"
+    style="width:18px;height:18px;border-radius:50%;border:2px solid var(--border2);flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;background:var(--white);margin-top:1px;"
+    onmouseover="this.style.borderColor='#16A34A';this.style.background='#F0FDF4'"
     onmouseout="this.style.borderColor='var(--border2)';this.style.background='var(--white)'">
   </div>`;
 }
@@ -4779,9 +4779,14 @@ function taskCardHtml(t){
       <div style="flex:1;"></div>
       <!-- RIGHT: Complete · View · Edit · Help -->
       ${t.status==='done'
-        ? `<span style="font-size:10px;font-weight:700;color:var(--green);padding:3px 8px;border-radius:12px;background:var(--green-pale);">✓ Done</span>
-           <button onclick="event.stopPropagation();reopenTask('${t.id}')" title="Reopen" style="${ab('border-color:#FEF3C7;')}" onmouseover="this.style.background='#FEF3C7'" onmouseleave="this.style.background='var(--white)'"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#D97706" stroke-width="2.5" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-5H1"/></svg></button>`
-        : `<button onclick="event.stopPropagation();markTaskDone('${t.id}')" title="Mark complete" style="${ab('border-color:#BBF7D0;')}" onmouseover="this.style.background='var(--green)';this.style.borderColor='var(--green)'" onmouseleave="this.style.background='var(--white)';this.style.borderColor='#BBF7D0'"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></button>`}
+        ? `<span style="font-family:var(--sans);font-size:9px;font-weight:700;color:#5A7A55;padding:4px 10px;border-radius:100px;background:#E8F0E6;letter-spacing:0.06em;display:inline-flex;align-items:center;gap:4px;flex-shrink:0;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#5A7A55" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Done</span>
+           <button onclick="event.stopPropagation();reopenTask('${t.id}')" title="Reopen task" style="${ab('border-color:#FEF3C7;')}" onmouseover="this.style.background='#FEF3C7'" onmouseleave="this.style.background='var(--white)'"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#D97706" stroke-width="2.5" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-5H1"/></svg></button>`
+        : `<button onclick="event.stopPropagation();markTaskDone('${t.id}')" title="Mark as complete"
+            style="font-family:var(--sans);height:28px;padding:0 12px;border-radius:100px;border:1.5px solid #BBF7D0;background:var(--white);color:#16A34A;cursor:pointer;display:inline-flex;align-items:center;gap:5px;font-size:9px;font-weight:700;letter-spacing:0.06em;transition:all 0.15s;flex-shrink:0;white-space:nowrap;"
+            onmouseover="this.style.background='#16A34A';this.style.borderColor='#16A34A';this.style.color='#fff'"
+            onmouseleave="this.style.background='var(--white)';this.style.borderColor='#BBF7D0';this.style.color='#16A34A'">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Complete
+          </button>`}
       <button onclick="event.stopPropagation();openTaskModal('${t.id}')" title="View task" style="${ab()}" onmouseover="this.style.background='var(--green-pale)';this.style.borderColor='var(--green)'" onmouseleave="this.style.background='var(--white)';this.style.borderColor='var(--border)'"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#0f5132" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>
       <button onclick="event.stopPropagation();openTaskModal('${t.id}');setTimeout(()=>switchTaskModalMode('edit'),300)" title="Edit task" style="${ab()}" onmouseover="this.style.background='var(--green-pale)';this.style.borderColor='var(--green)'" onmouseleave="this.style.background='var(--white)';this.style.borderColor='var(--border)'"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#0f5132" stroke-width="2" stroke-linecap="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>
       <button onclick="event.stopPropagation();requestHelp('${t.id}')" title="Request help" style="${ab('border-color:#BFDBFE;')}" onmouseover="this.style.background='#DBEAFE';this.style.borderColor='#3B82F6'" onmouseleave="this.style.background='var(--white)';this.style.borderColor='#BFDBFE'"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2.2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></button>
@@ -7168,8 +7173,8 @@ function switchTaskModalMode(mode){
     }
     // Populate edit fields from task
     document.getElementById('t-title').value   = t.title||'';
-    rtText('t-desc')    = t.desc||'';
-    rtText('t-notes')   = t.notes||'';
+    rtSet('t-desc', t.desc||'');
+    rtSet('t-notes', t.notes||'');
     document.getElementById('t-priority').value= t.priority||'medium';
     document.getElementById('t-status').value  = t.status||'todo';
     document.getElementById('t-due').value     = t.due||'';
@@ -7324,8 +7329,8 @@ function openTaskModal(taskId, prefillDate=''){
 
     // Clear form
     document.getElementById('t-title').value='';
-    rtText('t-desc')='';
-    rtText('t-notes')='';
+    rtSet('t-desc', '');
+    rtSet('t-notes', '');
     document.getElementById('t-priority').value='medium';
     document.getElementById('t-status').value='todo';
     document.getElementById('t-due').value=prefillDate||'';
@@ -7610,35 +7615,40 @@ function addThreadMessage(){
   if(!authorVal){ showToast('Please select who is posting'); return; }
   if(!text && !images.length){ showToast('Please write a comment or attach an image'); return; }
 
+  // Guard against double-post: disable the post button immediately
+  const postBtn = document.querySelector('#task-modal [onclick="addThreadMessage()"], button[onclick="addThreadMessage()"]');
+  if(postBtn){ if(postBtn._posting) return; postBtn._posting = true; }
+
   let authorName='Team', authorColor='#9AB5A8', authorIcon='';
   if(authorVal.startsWith('team_')){ const m=getMember(authorVal.replace('team_','')); if(m){authorName=m.name;authorColor=m.color;} }
-  else if(authorVal.startsWith('dr_')){ const d=getDoctor(authorVal.replace('dr_','')); if(d){authorName=d.name;authorColor=d.color;authorIcon='🩺 ';} }
-  else if(authorVal==='patient'){ authorName='Patient'; authorColor='#6B8C7C'; authorIcon='🏥 '; }
+  else if(authorVal.startsWith('dr_')){ const d=getDoctor(authorVal.replace('dr_','')); if(d){authorName=d.name;authorColor=d.color;authorIcon='';} }
+  else if(authorVal==='patient'){ authorName='Patient'; authorColor='#6B8C7C'; authorIcon=''; }
 
   const msg = { id:'msg_'+Date.now(), authorId:authorVal, authorName, authorColor, authorIcon, text, images, timestamp:new Date().toISOString(), localDate:today() };
 
   if(editingTaskId){
     const task = state.tasks.find(t=>t.id===editingTaskId);
-    if(!task) return;
+    if(!task){ if(postBtn) postBtn._posting=false; return; }
     if(!task.thread) task.thread=[];
     task.thread.push(msg);
     task.updatedAt = new Date().toISOString();
-    rtText('thread-input')='';
+    rtSet('thread-input', '');
     window._threadImages=[];
     const preview=document.getElementById('thread-image-preview'); if(preview) preview.innerHTML='';
     renderThread(task);
     renderTaskModalChecklist(task);
-    doSave(); // Immediate save for comments
+    doSave();
     renderAll();
   } else {
     if(!window._pendingThread) window._pendingThread=[];
     window._pendingThread.push(msg);
-    rtText('thread-input')='';
+    rtSet('thread-input', '');
     window._threadImages=[];
     const preview=document.getElementById('thread-image-preview'); if(preview) preview.innerHTML='';
     renderPendingThread();
   }
-  showToast('Comment posted ✓');
+  if(postBtn) setTimeout(()=>{ postBtn._posting=false; }, 500);
+  showToast('Comment posted ✓', 2000);
 }
 function renderTeamModal(){
   document.getElementById('team-member-list').innerHTML = state.team.map((m,i)=>`
@@ -8560,7 +8570,7 @@ function logReminder(){
   const logText=document.getElementById('reminder-log-text');
   logEl.style.display='block';
   logText.innerHTML=`<strong>${dr?.name}</strong> — ${reminder.type}<br>${message?message+'<br>':''}${reminderSelectedTasks.length?'Tasks: '+reminderSelectedTasks.join(', '):''}`;
-  rtText('reminder-message')='';
+  rtSet('reminder-message', '');
   showToast('Reminder logged ✓');
   if(document.getElementById('page-doctors')?.classList.contains('active')) renderDoctorsPage();
 }
@@ -9291,18 +9301,23 @@ function renderTaskInlineComment(t){
 
 // Post a comment directly from the card
 function postTaskInlineComment(taskId){
-  const inp = document.getElementById('cmt-inp-'+taskId);
+  // Support both cmt-inp- and cmt-inp2- variants
+  const inp = document.getElementById('cmt-inp-'+taskId) || document.getElementById('cmt-inp2-'+taskId);
   if(!inp) return;
   const text = inp.value.trim();
   if(!text) return;
+  // Prevent double-post: disable input immediately
+  inp.disabled = true;
   const t = state.tasks.find(x=>x.id===taskId);
-  if(!t) return;
+  if(!t){ inp.disabled=false; return; }
   if(!t.thread) t.thread=[];
-  t.thread.push({id:'th_'+Date.now(), author:'Team', text, created:new Date().toISOString()});
+  t.thread.push({id:'th_'+Date.now(), author:'Team', authorName:'Team', text, created:new Date().toISOString(), timestamp:new Date().toISOString()});
   t.updatedAt = new Date().toISOString();
   inp.value='';
+  inp.disabled = false;
+  doSave();
   renderAll();
-  doSave(); // Save immediately, no delay — comments need to sync fast
+  showToast('Comment added ✓', 2000);
 }
 
 // Add a checklist step inline
@@ -9712,7 +9727,7 @@ function openApptModal(id, prefillDate='', prefillTime=''){
   document.getElementById('appt-date').value    =a?.date    ||prefillDate||apptTodayStr();
   document.getElementById('appt-time').value    =a?.time    ||prefillTime||'';
   document.getElementById('appt-location').value=a?.location||'';
-  rtText('appt-notes')   =a?.notes   ||'';
+  rtSet('appt-notes', a?.notes   ||'');
   document.getElementById('appt-duration').value=a?.duration||'';
 
   const kind=a?.kind||'internal';
@@ -12381,7 +12396,7 @@ function deleteCurrentPatient(){
 function editCurrentPatient(){ if(currentPatientId) openPatientModal(currentPatientId); }
 
 // ── Notes
-function openPtNoteModal(){ document.getElementById('pn-cat').value='general'; rtText('pn-text')=''; openModal('pt-note-modal'); }
+function openPtNoteModal(){ document.getElementById('pn-cat').value='general'; rtSet('pn-text',''); openModal('pt-note-modal'); }
 function savePtNote(){
   const text=rtText('pn-text').trim();
   if(!text){ showToast('Note text required'); return; }
@@ -12402,7 +12417,7 @@ function openPtTaskModal(taskId){
   document.getElementById('pt-task-modal-title').textContent=taskId?'✏️ Edit task':'✅ Add patient task';
   document.getElementById('ptask-delete-btn').style.display=taskId?'block':'none';
   document.getElementById('ptask-title').value=t?.title||pf?.title||'';
-  rtText('ptask-desc')=t?.desc||'';
+  rtSet('ptask-desc', t?.desc||'');
   document.getElementById('ptask-notes').value=t?.notes||pf?.notes||'';
   document.getElementById('ptask-due').value=t?.due||pf?.due||'';
   document.getElementById('ptask-priority').value=t?.priority||pf?.priority||'medium';
@@ -13195,7 +13210,7 @@ function openMedEntryModal(id){
     document.getElementById('med-edit-mode').style.display='block';
     // Clear form
     ['med-name','med-dosage','med-indication'].forEach(id=>document.getElementById(id).value='');
-    rtText('med-notes')='';
+    rtSet('med-notes', '');
     document.getElementById('med-cat').value='other';
     document.getElementById('med-form-actions').innerHTML=`
       <button class="fbtn ghost" onclick="closeModal('med-entry-modal')">Cancel</button>
@@ -13276,7 +13291,7 @@ function _switchMedToEdit(){
   document.getElementById('med-cat').value        = m.cat||'other';
   document.getElementById('med-dosage').value     = m.dosage||'';
   document.getElementById('med-indication').value = m.indication||'';
-  rtText('med-notes')      = m.notes||'';
+  rtSet('med-notes', m.notes||'');
   window._medPhotoData = m.photo||null;
   const prev = document.getElementById('med-photo-preview');
   if(prev){
@@ -13637,7 +13652,7 @@ function openPtMedModal(patientId, medId){
   document.getElementById('ptmed-bought').value   = m?.boughtDate||'';
   document.getElementById('ptmed-supply').value   = m?.supply||'';
   document.getElementById('ptmed-remind').value   = m?.remindDays||'7';
-  rtText('ptmed-notes')    = m?.notes||'';
+  rtSet('ptmed-notes', m?.notes||'');
   setPtMedType(m?.type||'once');
   window._ptMedPhotoData = m?.photo||null;
   const prev=document.getElementById('ptmed-photo-preview');
@@ -13805,7 +13820,7 @@ function openDrBacklogModal(drId){
   document.getElementById('drbl-cat').value='Consultation';
   document.getElementById('drbl-date').value='';
   document.getElementById('drbl-time').value='';
-  rtText('drbl-notes')='';
+  rtSet('drbl-notes', '');
   const aSel = document.getElementById('drbl-assignee');
   aSel.innerHTML = '<option value="">— Select —</option>'+(state?.team||[]).map(m=>`<option value="${m.id}">${m.name}</option>`).join('');
   openModal('dr-backlog-modal');
