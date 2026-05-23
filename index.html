@@ -91,30 +91,36 @@ body {
 }
 
 /* ── PIN LOCK ── */
-.lock-screen { position: fixed; inset: 0; background: #0F3D2E; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom); }
+.lock-screen {
+  position: fixed; inset: 0;
+  background-color: #021620;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='w'><feTurbulence type='turbulence' baseFrequency='0.04 0.95' numOctaves='2' stitchTiles='stitch' seed='5'/><feColorMatrix values='0 0 0 0 0.92 0 0 0 0 0.89 0 0 0 0 0.80 0 0 0 0.06 0'/></filter><filter id='e'><feTurbulence type='turbulence' baseFrequency='0.95 0.04' numOctaves='2' stitchTiles='stitch' seed='7'/><feColorMatrix values='0 0 0 0 0.92 0 0 0 0 0.89 0 0 0 0 0.80 0 0 0 0.05 0'/></filter><rect width='180' height='180' filter='url(%23w)'/><rect width='180' height='180' filter='url(%23e)'/></svg>");
+  background-size: 180px 180px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  z-index: 9999; padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+}
 .lock-screen.hidden { display: none; }
 .lock-box { width: 100%; max-width: 360px; padding: 0 32px; text-align: center; display: flex; flex-direction: column; align-items: center; }
 .lock-logo { margin-bottom: 20px; }
 .lock-logo img { width: 96px; height: 96px; object-fit: contain; }
-.lock-title { font-size: 28px; font-weight: 800; color: #fff; margin-bottom: 4px; letter-spacing: -0.03em; }
-.lock-sub { font-size: 13px; color: rgba(255,255,255,0.65); margin-bottom: 36px; line-height: 1.5; }
+.lock-title { font-family: var(--serif); font-size: 30px; font-weight: 400; font-style: italic; color: #FBF7EC; margin-bottom: 4px; letter-spacing: 0.06em; }
+.lock-sub { font-family: var(--sans); font-size: 11px; color: rgba(251,247,236,0.50); margin-bottom: 36px; line-height: 1.5; letter-spacing: 0.06em; text-transform: uppercase; }
 /* PIN dot display */
 .pin-dots { display: flex; gap: 16px; justify-content: center; margin-bottom: 32px; }
-.pin-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.6); background: transparent; transition: background 0.15s, transform 0.1s; }
-.pin-dot.filled { background: #fff; transform: scale(1.1); }
+.pin-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(251,247,236,0.35); background: transparent; transition: background 0.15s, transform 0.1s; }
+.pin-dot.filled { background: #FBF7EC; border-color: #FBF7EC; transform: scale(1.1); }
 /* Hidden real input */
 .pin-inp { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
-.pin-inp.error { /* triggers shake on dots */ }
 @keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-8px)} 60%{transform:translateX(8px)} }
 .pin-dots.shake { animation: shake 0.35s; }
-.pin-error { font-size: 12px; color: #FCA5A5; min-height: 18px; margin-bottom: 16px; font-weight: 600; }
+.pin-error { font-family: var(--sans); font-size: 11px; color: #F9C8C5; min-height: 18px; margin-bottom: 16px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
 /* Numpad */
 .pin-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; width: 100%; max-width: 280px; }
-.pin-key { font-family: var(--sans); font-size: 22px; font-weight: 600; color: #fff; background: rgba(255,255,255,0.12); border: none; border-radius: 50%; width: 72px; height: 72px; cursor: pointer; transition: background 0.12s, transform 0.1s; display: flex; align-items: center; justify-content: center; margin: 0 auto; }
-.pin-key:hover, .pin-key:active { background: rgba(255,255,255,0.25); color: #fff; transform: scale(0.95); }
-.pin-key.del { font-size: 18px; background: transparent; color: rgba(255,255,255,0.7); }
-.pin-key.del:hover { background: rgba(220,38,38,0.3); color: #fff; }
-.pin-key.empty { background: transparent; pointer-events: none; }
+.pin-key { font-family: var(--sans); font-size: 22px; font-weight: 400; color: #FBF7EC; background: rgba(251,247,236,0.08); border: 1px solid rgba(251,247,236,0.12); border-radius: 50%; width: 72px; height: 72px; cursor: pointer; transition: background 0.12s, transform 0.1s; display: flex; align-items: center; justify-content: center; margin: 0 auto; }
+.pin-key:hover, .pin-key:active { background: rgba(251,247,236,0.18); color: #FBF7EC; transform: scale(0.95); border-color: rgba(251,247,236,0.25); }
+.pin-key.del { font-size: 18px; background: transparent; border-color: transparent; color: rgba(251,247,236,0.55); }
+.pin-key.del:hover { background: rgba(178,58,47,0.25); color: #F9C8C5; border-color: rgba(178,58,47,0.3); }
+.pin-key.empty { background: transparent; border: none; pointer-events: none; }
 .lock-btn { display: none; } /* hidden — numpad replaces it */
 
 /* ── TOPBAR ── */
@@ -2251,7 +2257,7 @@ div:hover > .complete-tooltip { opacity: 1 !important; }
       <button class="mclose" onclick="closeModal('medications-modal')">✕</button>
     </div>
     <div style="flex-shrink:0;padding:10px 16px;background:#F5F0FD;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-      <input class="search-inp" id="med-search" placeholder="🔍 Search medications…" oninput="renderMedications()" style="flex:1;min-width:140px;">
+      <input class="search-inp" id="med-search" placeholder="Search medications…" oninput="renderMedications()" style="flex:1;min-width:140px;">
       <select class="filter-select" id="med-f-cat" onchange="renderMedications()">
         <option value="">All categories</option>
         <option value="antibiotic">Antibiotic</option><option value="analgesic">Analgesic / Pain</option>
@@ -2260,8 +2266,8 @@ div:hover > .complete-tooltip { opacity: 1 !important; }
         <option value="vitamin">Vitamins / Supplements</option><option value="other">Other</option>
       </select>
       <select class="filter-select" id="med-view-toggle" onchange="renderMedications()" style="max-width:100px;">
-        <option value="list">📋 List</option>
-        <option value="grid">📷 Photos</option>
+        <option value="grid">Photos</option>
+        <option value="list">List</option>
       </select>
       <button onclick="openMedEntryModal(null)" style="font-family:var(--sans);font-size:11px;font-weight:700;padding:6px 14px;border-radius:7px;border:none;background:#7C3AED;color:#fff;cursor:pointer;">+ Add medication</button>
     </div>
@@ -3220,7 +3226,11 @@ async function syncLoad(){
     if(d.patients    && d.patients.length    >= (patients||[]).length)     patients     = d.patients;
     if(d.appointments && d.appointments.length >= (appointments||[]).length) appointments = d.appointments;
     if(d.directory   && d.directory.length   >= (dirEntries||[]).length)   dirEntries   = d.directory;
-    if(d.medications && d.medications.length >= (medEntries||[]).length)   medEntries   = d.medications;
+    if(d.medications && d.medications.length > (medEntries||[]).length){
+      medEntries = d.medications;
+      // Persist to dedicated key immediately so medLoad() finds it
+      try{ localStorage.setItem(MED_KEY, JSON.stringify(medEntries)); }catch(e){}
+    }
     if(d.hr_leave    && d.hr_leave.length    >= (window._hrLeave||[]).length)   window._hrLeave   = d.hr_leave;
     if(d.hr_devices  && d.hr_devices.length  >= (window._hrDevices||[]).length) window._hrDevices = d.hr_devices;
 
@@ -7713,7 +7723,12 @@ function openModal(id){
   if(id==='eod-modal')              initEODModal();
   // Resource modal hooks
   if(id==='master-directory-modal'){ dirLoad(); renderDirectory(); }
-  if(id==='medications-modal'){      medLoad(); renderMedications(); }
+  if(id==='medications-modal'){
+    // Only load from storage if medEntries is currently empty (e.g. first open)
+    // — don't overwrite good in-memory data that came from Supabase sync
+    if(!medEntries || !medEntries.length) medLoad();
+    renderMedications();
+  }
   if(id==='data-sync-modal'){        setTimeout(renderSyncStatus, 50); }
   if(id==='hr-modal'){
     hrLoad();
@@ -8193,7 +8208,12 @@ function renderDoctorsPage(){
           </div>
           ${commentCount?`<span style="font-size:10px;color:var(--muted2);">💬${commentCount}</span>`:''}
           ${pt?`<button onclick="event.stopPropagation();openPatientFromTask('${pt.id}')"
-            style="width:28px;height:28px;border-radius:7px;border:1px solid ${dr.color}30;background:${dr.color}10;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;">📂</button>`:''}
+            title="Open ${pt?ptDisplayName(pt):''}'s patient file"
+            style="width:30px;height:30px;border-radius:100px;border:1px solid ${dr.color}35;background:${dr.color}0D;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.15s;"
+            onmouseover="this.style.background='${dr.color}22';this.style.borderColor='${dr.color}80'"
+            onmouseout="this.style.background='${dr.color}0D';this.style.borderColor='${dr.color}35'">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="${dr.color}" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </button>`:''}
         </div>`;
       };
 
@@ -8209,7 +8229,12 @@ function renderDoctorsPage(){
             <div style="font-size:10px;color:var(--muted);margin-top:1px;">${member?member.name:'—'} · ${dateFmt}</div>
           </div>
           ${pt?`<button onclick="event.stopPropagation();openPatientFromTask('${pt.id}')"
-            style="width:28px;height:28px;border-radius:7px;border:1px solid ${dr.color}30;background:${dr.color}10;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;">📂</button>`:''}
+            title="Open ${ptDisplayName(pt)}'s patient file"
+            style="width:30px;height:30px;border-radius:100px;border:1px solid ${dr.color}35;background:${dr.color}0D;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.15s;"
+            onmouseover="this.style.background='${dr.color}22';this.style.borderColor='${dr.color}80'"
+            onmouseout="this.style.background='${dr.color}0D';this.style.borderColor='${dr.color}35'">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="${dr.color}" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </button>`:''}
         </div>`;
       };
 
@@ -9093,7 +9118,7 @@ async function init(){
     if(window._gistPatients     && window._gistPatients.length)     patients     = window._gistPatients;
     if(window._gistAppointments && window._gistAppointments.length) appointments = window._gistAppointments;
     if(window._gistDirectory    && window._gistDirectory.length)    dirEntries   = window._gistDirectory;
-    if(window._gistMedications  && window._gistMedications.length)  medEntries   = window._gistMedications;
+    if(window._gistMedications  && window._gistMedications.length > medEntries.length)  medEntries   = window._gistMedications;
     if(window._gistTrash        && window._gistTrash.length)        _trash       = window._gistTrash;
     delete window._gistPatients; delete window._gistAppointments;
     delete window._gistDirectory; delete window._gistMedications; delete window._gistTrash;
@@ -9132,6 +9157,8 @@ async function init(){
   renderAll();
   updatePtCount();
   updateBellBadge();
+  // Backfill all patient medications into Approved Medications list
+  setTimeout(()=>syncAllPatientMedsToApproved(), 800);
   if(!apptCalMinimized) renderApptCalendar();
   setTimeout(checkBirthdayAlerts, 1800);
   setTimeout(checkAndShowRecoveryBanner, 500);
@@ -13088,9 +13115,92 @@ function deleteDirEntry(){
 const MED_KEY = 'cc_medications_v1';
 let medEntries = [];
 let medEditingId = null;
-function medLoad(){ try{ medEntries=JSON.parse(localStorage.getItem(MED_KEY)||'[]'); }catch(e){ medEntries=[]; } }
-function medSave(){ try{ localStorage.setItem(MED_KEY,JSON.stringify(medEntries)); scheduleAutoSave(); }catch(e){} }
+
+function medLoad(){
+  try{
+    // Read from dedicated medications key
+    const fromKey   = JSON.parse(localStorage.getItem(MED_KEY)||'[]');
+    // Also read from the combined backup key (populated by syncLoad and medSave)
+    const backup    = JSON.parse(localStorage.getItem('cc_state_backup')||'{}');
+    const fromBackup = Array.isArray(backup.medications) ? backup.medications : [];
+    // Use whichever has more entries — they should converge, but safety first
+    const best = fromKey.length >= fromBackup.length ? fromKey : fromBackup;
+    medEntries = best;
+    // Keep both keys in sync
+    if(fromKey.length < fromBackup.length) localStorage.setItem(MED_KEY, JSON.stringify(fromBackup));
+  }catch(e){ medEntries=[]; }
+}
+
+function medSave(){
+  try{
+    // Write to dedicated medications key
+    localStorage.setItem(MED_KEY, JSON.stringify(medEntries));
+    // Also write into the combined backup key so it survives any restore path
+    try{
+      const backup = JSON.parse(localStorage.getItem('cc_state_backup')||'{}');
+      backup.medications = medEntries;
+      backup.savedAt = new Date().toISOString();
+      localStorage.setItem('cc_state_backup', JSON.stringify(backup));
+    }catch(e2){}
+  }catch(e){}
+  scheduleAutoSave();
+  // If Approved Medications modal is currently open, refresh the list immediately
+  const modal = document.getElementById('medications-modal');
+  if(modal && modal.classList.contains('open')) renderMedications();
+}
 function medUID(){ return 'med_'+Date.now()+'_'+Math.random().toString(36).slice(2,6); }
+
+// ── Sync ALL patient medications → Approved Medications ─────────────────
+// Runs on load and after any patient med save to ensure nothing is missing
+function syncAllPatientMedsToApproved(){
+  if(!patients || !patients.length) return;
+  let changed = false;
+  patients.forEach(p=>{
+    (p.medications||[]).forEach(med=>{
+      if(!med.name) return;
+      const name = med.name.trim();
+      const existing = medEntries.find(m => m.name.toLowerCase() === name.toLowerCase());
+      const sourceEntry = {
+        patientId:   p.id,
+        patientName: ptDisplayName(p),
+        doctor:      med.doctor || '—',
+        pharmacy:    med.pharmacy || '—',
+        date:        med.boughtDate || med.startDate || med.createdAt?.slice(0,10) || '',
+        dosage:      med.dosage || '',
+      };
+      if(!existing){
+        medEntries.push({
+          id:       medUID(),
+          name,
+          cat:      'other',
+          dosage:   med.dosage || '',
+          indication: '',
+          notes:    '',
+          photo:    med.photo || null,
+          sources:  [sourceEntry],
+        });
+        changed = true;
+      } else {
+        // Update/add source
+        if(!existing.sources) existing.sources = [];
+        const srcIdx = existing.sources.findIndex(s => s.patientId === p.id);
+        if(srcIdx > -1) existing.sources[srcIdx] = sourceEntry;
+        else { existing.sources.push(sourceEntry); changed = true; }
+        // Best photo: prefer Cloudinary URL > base64 > nothing
+        if(med.photo){
+          const newIsCloud = typeof med.photo === 'string' && med.photo.startsWith('http');
+          const oldIsCloud = typeof existing.photo === 'string' && existing.photo?.startsWith('http');
+          if(!existing.photo || (newIsCloud && !oldIsCloud)){
+            existing.photo = med.photo; changed = true;
+          }
+        }
+        // Fill dosage if missing
+        if(!existing.dosage && med.dosage){ existing.dosage = med.dosage; changed = true; }
+      }
+    });
+  });
+  if(changed) medSave();
+}
 
 const MED_CAT_COLORS = {antibiotic:'#0F6E56',analgesic:'#DC2626',cardiovascular:'#185FA5',respiratory:'#7C3AED',dermatology:'#D4621A',endocrine:'#D4A017',vitamin:'#16A34A',other:'#9CA3AF'};
 
@@ -13108,21 +13218,32 @@ function renderMedications(){
   if(!items.length){ el.innerHTML='<div class="empty"><div class="empty-icon">💊</div><p>No medications added yet</p></div>'; return; }
 
   if(viewMode==='grid'){
-    // Photo grid — 4 columns, alphabetical, photo + name
-    el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;padding:4px 0;">
+    el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px;padding:4px 0;">
       ${items.map(m=>{
         const color = MED_CAT_COLORS[m.cat]||'#9CA3AF';
-        return `<div onclick="openMedEntryModal('${m.id}')" style="border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;cursor:pointer;transition:box-shadow 0.15s;background:var(--white);"
-          onmouseover="this.style.boxShadow='var(--shadow-md)'" onmouseout="this.style.boxShadow='none'">
-          <div style="width:100%;height:100px;background:${color}14;display:flex;align-items:center;justify-content:center;overflow:hidden;">
-            ${m.photo
-              ? `<img src="${m.photo}" style="width:100%;height:100%;object-fit:cover;">`
-              : `<div style="font-size:32px;">💊</div>`}
+        const sources = m.sources||[];
+        const patientNames = sources.map(s=>s.patientName).filter(Boolean);
+        const hasPhoto = !!m.photo;
+        return `<div onclick="openMedEntryModal('${m.id}')"
+          style="border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;cursor:pointer;transition:all 0.15s;background:var(--white);box-shadow:var(--shadow);"
+          onmouseover="this.style.boxShadow='var(--shadow-md)';this.style.transform='translateY(-2px)'"
+          onmouseout="this.style.boxShadow='var(--shadow)';this.style.transform='none'">
+          <!-- Photo area -->
+          <div style="width:100%;height:130px;background:${hasPhoto?'#000':color+'18'};display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;">
+            ${hasPhoto
+              ? `<img src="${m.photo}" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.innerHTML='<div style=\\'font-size:38px;\\'>💊</div>'">`
+              : `<div style="font-size:38px;">💊</div>`
+            }
+            <!-- Category badge top-left -->
+            <div style="position:absolute;top:7px;left:7px;font-family:var(--sans);font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;padding:2px 7px;border-radius:100px;background:${color};color:#fff;">${m.cat||'other'}</div>
+            <!-- Patient count badge top-right -->
+            ${sources.length ? `<div style="position:absolute;top:7px;right:7px;font-family:var(--sans);font-size:9px;font-weight:700;padding:2px 8px;border-radius:100px;background:rgba(0,0,0,0.55);color:#fff;">${sources.length}p</div>` : ''}
           </div>
-          <div style="padding:8px;">
-            <div style="font-size:11px;font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${m.name}</div>
-            <div style="font-size:9px;font-weight:700;color:${color};margin-top:2px;">${m.cat||'other'}</div>
-            ${m.dosage?`<div style="font-size:9px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${m.dosage}</div>`:''}
+          <!-- Info -->
+          <div style="padding:9px 10px 10px;">
+            <div style="font-family:var(--serif);font-size:14px;font-weight:400;color:var(--text);line-height:1.2;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${m.name}</div>
+            ${m.dosage ? `<div style="font-family:var(--sans);font-size:10px;color:var(--muted);margin-bottom:4px;">${m.dosage}</div>` : ''}
+            ${patientNames.length ? `<div style="font-family:var(--sans);font-size:9px;color:var(--muted2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${patientNames.join(', ')}">${patientNames.join(' · ')}</div>` : ''}
           </div>
         </div>`;
       }).join('')}
@@ -13130,29 +13251,50 @@ function renderMedications(){
     return;
   }
 
-  // List view — alphabetical with letter dividers + optional photo thumbnail
+  // List view — alphabetical with letter dividers + source info
   let currentLetter = '';
   el.innerHTML = items.map(m=>{
     const color = MED_CAT_COLORS[m.cat]||'#9CA3AF';
     const letter = m.name[0].toUpperCase();
     const letterDiv = letter !== currentLetter
-      ? `<div style="font-size:10px;font-weight:800;color:var(--muted2);padding:8px 4px 3px;text-transform:uppercase;letter-spacing:0.1em;${currentLetter?'margin-top:6px':''}">— ${letter} —</div>`
+      ? `<div style="font-family:var(--sans);font-size:10px;font-weight:700;color:var(--muted2);padding:8px 4px 3px;text-transform:uppercase;letter-spacing:0.1em;${currentLetter?'margin-top:6px':''}">— ${letter} —</div>`
       : '';
     currentLetter = letter;
-    return `${letterDiv}<div onclick="openMedEntryModal('${m.id}')" style="display:flex;align-items:center;gap:12px;padding:9px 12px;border-radius:8px;border:1px solid var(--border);margin-bottom:5px;cursor:pointer;transition:background 0.1s;background:var(--white);"
-      onmouseover="this.style.background='#FAF5FF'" onmouseout="this.style.background='var(--white)'">
-      <div style="width:40px;height:40px;border-radius:8px;background:${color}14;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;">
-        ${m.photo ? `<img src="${m.photo}" style="width:100%;height:100%;object-fit:cover;">` : `<span style="font-size:20px;">💊</span>`}
-      </div>
-      <div style="flex:1;min-width:0;">
-        <div style="font-size:13px;font-weight:700;color:var(--text);border-left:3px solid ${color};padding-left:8px;">${m.name}</div>
-        <div style="font-size:10px;color:var(--muted);padding-left:11px;margin-top:2px;display:flex;gap:10px;flex-wrap:wrap;">
-          ${m.dosage?`<span>💉 ${m.dosage}</span>`:''}
-          ${m.indication?`<span>📋 ${m.indication}</span>`:''}
+
+    // Source summary
+    const sources = m.sources || [];
+    const uniquePharmacies = [...new Set(sources.map(s=>s.pharmacy).filter(x=>x&&x!=='—'))];
+    const uniqueDoctors    = [...new Set(sources.map(s=>s.doctor).filter(x=>x&&x!=='—'))];
+    const sourceHtml = sources.length
+      ? `<div style="margin-top:5px;padding:6px 10px 6px 11px;background:${color}08;border-radius:6px;border-left:2px solid ${color}40;">
+          <div style="font-family:var(--sans);font-size:8px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${color};margin-bottom:4px;">Sourced from · ${sources.length} patient${sources.length!==1?'s':''}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px;">
+            ${sources.map(s=>`<span style="font-family:var(--sans);font-size:9px;font-weight:600;padding:2px 8px;border-radius:100px;background:var(--white);border:1px solid var(--border);color:var(--text);">${s.patientName}</span>`).join('')}
+          </div>
+          ${uniquePharmacies.length ? `<div style="font-family:var(--sans);font-size:9px;color:var(--muted);margin-top:3px;">Pharmacy: ${uniquePharmacies.join(', ')}</div>` : ''}
+          ${uniqueDoctors.length    ? `<div style="font-family:var(--sans);font-size:9px;color:var(--muted);margin-top:1px;">Prescribed by: ${uniqueDoctors.join(', ')}</div>` : ''}
+        </div>`
+      : '';
+
+    return `${letterDiv}<div onclick="openMedEntryModal('${m.id}')" style="display:flex;flex-direction:column;padding:10px 12px;border-radius:var(--radius);border:1px solid var(--border);margin-bottom:6px;cursor:pointer;transition:background 0.1s;background:var(--white);"
+      onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='var(--white)'">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="width:40px;height:40px;border-radius:8px;background:${color}14;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;">
+          ${m.photo ? `<img src="${m.photo}" style="width:100%;height:100%;object-fit:cover;">` : `<span style="font-size:20px;">💊</span>`}
         </div>
-        ${m.notes?`<div style="font-size:10px;color:var(--muted2);padding-left:11px;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${m.notes}</div>`:''}
+        <div style="flex:1;min-width:0;">
+          <div style="font-family:var(--serif);font-size:14px;font-weight:400;color:var(--text);border-left:3px solid ${color};padding-left:8px;">${m.name}</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding-left:11px;margin-top:2px;">
+            ${m.dosage    ? `<span style="font-family:var(--sans);font-size:9px;color:var(--muted);">${m.dosage}</span>` : ''}
+            ${m.indication? `<span style="font-family:var(--sans);font-size:9px;color:var(--muted);">${m.indication}</span>` : ''}
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;">
+          <span style="font-family:var(--sans);font-size:8px;font-weight:700;padding:2px 8px;border-radius:100px;background:${color}18;color:${color};text-transform:uppercase;letter-spacing:0.08em;">${m.cat||'other'}</span>
+          ${sources.length ? `<span style="font-family:var(--sans);font-size:8px;color:var(--muted2);">${sources.length} patient${sources.length!==1?'s':''}</span>` : ''}
+        </div>
       </div>
-      <span style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;background:${color}18;color:${color};flex-shrink:0;">${m.cat||'other'}</span>
+      ${sourceHtml}
     </div>`;
   }).join('');
 }
@@ -13260,15 +13402,31 @@ function _renderMedView(m){
 
   // Details
   const detailsEl = document.getElementById('med-view-details');
-  const rows = [
-    m.indication ? ['📋 Indication',   m.indication] : null,
-    m.notes      ? ['⚠️ Notes',        m.notes]      : null,
-  ].filter(Boolean);
-  detailsEl.innerHTML = rows.map(([label,val])=>`
+  const sources = m.sources || [];
+  const sourceBlock = sources.length ? `
     <div style="padding:10px 0;border-bottom:1px solid var(--border);">
-      <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted2);margin-bottom:3px;">${label}</div>
-      <div style="font-size:13px;color:var(--text);line-height:1.5;">${val}</div>
-    </div>`).join('') || '<div style="font-size:12px;color:var(--muted2);text-align:center;padding:16px;">No additional details</div>';
+      <div style="font-family:var(--sans);font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--muted2);margin-bottom:6px;">Sourced from · ${sources.length} patient${sources.length!==1?'s':''}</div>
+      <div style="display:flex;flex-direction:column;gap:5px;">
+        ${sources.map(s=>`
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:baseline;padding:5px 10px;background:var(--bg);border-radius:6px;border:1px solid var(--border);">
+            <span style="font-family:var(--serif);font-size:13px;color:var(--text);font-weight:500;">${s.patientName}</span>
+            ${s.dosage   ? `<span style="font-family:var(--sans);font-size:9px;color:var(--muted);">${s.dosage}</span>` : ''}
+            ${s.doctor   && s.doctor!=='—'   ? `<span style="font-family:var(--sans);font-size:9px;color:var(--muted);">Dr ${s.doctor}</span>` : ''}
+            ${s.pharmacy && s.pharmacy!=='—' ? `<span style="font-family:var(--sans);font-size:9px;color:var(--muted);">via ${s.pharmacy}</span>` : ''}
+            ${s.date     ? `<span style="font-family:var(--sans);font-size:9px;color:var(--muted2);margin-left:auto;">${new Date(s.date+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'2-digit'})}</span>` : ''}
+          </div>`).join('')}
+      </div>
+    </div>` : '';
+
+  const rows = [
+    m.indication ? ['Indication', m.indication] : null,
+    m.notes      ? ['Notes',      m.notes]       : null,
+  ].filter(Boolean);
+  detailsEl.innerHTML = sourceBlock + (rows.map(([label,val])=>`
+    <div style="padding:10px 0;border-bottom:1px solid var(--border);">
+      <div style="font-family:var(--sans);font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--muted2);margin-bottom:3px;">${label}</div>
+      <div style="font-family:var(--serif);font-size:13px;color:var(--text);line-height:1.5;">${val}</div>
+    </div>`).join('') || (sourceBlock ? '' : '<div style="font-family:var(--serif);font-style:italic;font-size:12px;color:var(--muted2);text-align:center;padding:16px;">No additional details</div>'));
 }
 
 function _switchMedToEdit(){
@@ -13730,21 +13888,56 @@ function savePtMed(){
   };
   if(!p.medications) p.medications=[];
   if(_ptMedEditingId){const i=p.medications.findIndex(x=>x.id===_ptMedEditingId);if(i>-1)p.medications[i]=med;else p.medications.push(med);}
-  else{
-    p.medications.push(med);
-    // Add to Approved Medications
-    const existing=medEntries.find(m=>m.name.toLowerCase()===name.toLowerCase());
-    if(!existing){medEntries.push({id:medUID(),name,cat:'other',dosage,indication:'',notes:'',photo:med.photo||null});medSave();}
-    else if(med.photo&&!existing.photo){existing.photo=med.photo;medSave();}
-    // Maintenance reminder
-    if(type==='maintenance'&&startDate&&med.supply){
-      const supplyDays=parseInt(med.supply)||30,remindDays=parseInt(med.remindDays)||7;
-      const rd=new Date(startDate+'T12:00:00');rd.setDate(rd.getDate()+supplyDays-remindDays);
-      if(!p.reminders)p.reminders=[];
-      p.reminders.push({id:ptUID(),type:'custom',title:`💊 Refill needed: ${name}`,due:rd.toISOString().slice(0,10),priority:'high',assignee:asnName,notes:`${name} (${dosage}) running low — ${remindDays} days left. Pharmacy: ${pharmacy||'—'}. Prescribed by: ${drName||'—'}.`,done:false,created:ptNow(),medRef:med.id});
+  else{ p.medications.push(med); }
+
+  // ── Auto-sync to Approved Medications (runs for both new AND edited) ──
+  const existing = medEntries.find(m => m.name.toLowerCase() === name.toLowerCase());
+  const sourceEntry = {
+    patientId:   p.id,
+    patientName: ptDisplayName(p),
+    doctor:      drName || '—',
+    pharmacy:    pharmacy || '—',
+    date:        boughtDate || startDate || new Date().toISOString().slice(0,10),
+    dosage:      dosage || '',
+  };
+  if(!existing){
+    medEntries.push({
+      id:         medUID(),
+      name,
+      cat:        'other',
+      dosage,
+      indication: '',
+      notes:      '',
+      photo:      med.photo || null,
+      sources:    [sourceEntry],
+    });
+    medSave();
+    if(!_ptMedEditingId) showToast(`"${name}" added to Approved Medications ✓`, 3000);
+  } else {
+    // Update source entry for this patient
+    if(!existing.sources) existing.sources = [];
+    const srcIdx = existing.sources.findIndex(s => s.patientId === p.id);
+    if(srcIdx > -1) existing.sources[srcIdx] = sourceEntry;
+    else existing.sources.push(sourceEntry);
+    // Always take the best photo — Cloudinary URL > base64 > nothing
+    if(med.photo){
+      const newIsCloud = typeof med.photo === 'string' && med.photo.startsWith('http');
+      const oldIsCloud = typeof existing.photo === 'string' && existing.photo?.startsWith('http');
+      if(!existing.photo || (newIsCloud && !oldIsCloud)) existing.photo = med.photo;
     }
-    // Auto-note
-    // Build structured medication note
+    // Fill dosage/category if missing
+    if(!existing.dosage && dosage) existing.dosage = dosage;
+    medSave();
+  }
+
+  // Maintenance reminder + auto-note (only on new save, not edits)
+  if(!_ptMedEditingId){
+    if(type==='maintenance' && startDate && med.supply){
+      const supplyDays=parseInt(med.supply)||30, remindDays=parseInt(med.remindDays)||7;
+      const rd=new Date(startDate+'T12:00:00'); rd.setDate(rd.getDate()+supplyDays-remindDays);
+      if(!p.reminders) p.reminders=[];
+      p.reminders.push({id:ptUID(),type:'custom',title:`Refill needed: ${name}`,due:rd.toISOString().slice(0,10),priority:'high',assignee:asnName,notes:`${name} (${dosage}) running low — ${remindDays} days left. Pharmacy: ${pharmacy||'—'}. Prescribed by: ${drName||'—'}.`,done:false,created:ptNow(),medRef:med.id});
+    }
     const fmtDate = d => d ? new Date(d+'T12:00:00').toLocaleDateString('en-GB',{timeZone:'Asia/Dubai',day:'numeric',month:'long',year:'numeric'}) : '—';
     const noteLines = [
       `Brand / Medication: ${name}`,
@@ -13762,8 +13955,8 @@ function savePtMed(){
     p.notes.push({id:ptUID(), cat:'medication', text:noteLines, medRef:med.id, created:ptNow()});
   }
   window._ptMedPhotoData=null;
-  ptSave();closeModal('pt-med-modal');renderPtTabContent();
-  showToast(_ptMedEditingId?'Medication updated ✓':'Medication saved ✓');
+  ptSave(); closeModal('pt-med-modal'); renderPtTabContent();
+  showToast(_ptMedEditingId ? 'Medication updated ✓' : 'Medication saved ✓');
 }
 
 function deletePtMed(){
