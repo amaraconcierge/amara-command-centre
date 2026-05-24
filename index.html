@@ -14863,6 +14863,7 @@ function openHrEntryModalPrefilled(member, dateStr, leaveType){
   const memberOpts = '<option value="">— Select member —</option>'
     + allNames.map(n=>`<option value="${n}" ${n===member?'selected':''}>${n}</option>`).join('');
   document.getElementById('hr-entry-body').innerHTML = _hrLeaveForm(null, memberOpts, dateStr, dateStr, leaveType||'Annual');
+  setTimeout(()=>{ calcHrDays(); updateHrLeaveTypeHint(document.getElementById('hre-type')?.value||'Annual'); }, 50);
   openModal('hr-entry-modal');
 }
 
@@ -14875,11 +14876,14 @@ function openHrEntryModal(type, id){
   // Use state.team only — avoids duplicates with leave seed data
   const allNames = (state?.team||[]).map(m=>m.name).filter(Boolean).sort();
   const existingName = existing?.member||existing?.name||'';
+  // When editing, find the matching team name even if the record has a full name
+  const matchedName = allNames.find(n=>hrMatchMember(existingName, n)) || existingName;
   const memberOpts = '<option value="">— Select member —</option>'
-    + allNames.map(n=>`<option value="${n}" ${existingName===n?'selected':''}>${n}</option>`).join('');
+    + allNames.map(n=>`<option value="${n}" ${matchedName===n?'selected':''}>${n}</option>`).join('');
 
   if(isLeave){
     document.getElementById('hr-entry-body').innerHTML = _hrLeaveForm(existing, memberOpts, existing?.from||'', existing?.to||'');
+  setTimeout(()=>{ calcHrDays(); updateHrLeaveTypeHint(document.getElementById('hre-type')?.value||''); }, 50);
   } else {
     document.getElementById('hr-entry-body').innerHTML=`
       <div class="form-row"><label class="form-label">Team member *</label><select class="form-select" id="hre-member">${memberOpts}</select></div>
@@ -15135,19 +15139,28 @@ function calcHrDays(){
 function saveHrLeave(){
   const member=document.getElementById('hre-member')?.value||'';
   const from=document.getElementById('hre-from')?.value||'';
-  if(!member||!from){showToast('Team member and start date required');return;}
-  const to=document.getElementById('hre-to')?.value||from; // default to = from (single day)
+  if(!member){showToast('Please select a team member');return;}
+  if(!from){showToast('Please set a start date');return;}
+  const to=document.getElementById('hre-to')?.value||from;
+  const days=document.getElementById('hre-days')?.value||'1';
+  const type=document.getElementById('hre-type')?.value||'Annual';
+  const status=document.getElementById('hre-status')?.value||'approved';
+  const notes=document.getElementById('hre-notes')?.value.trim()||'';
   const record={
-    id:_hrEditingId||hrUID(), name:member, member,
-    type:document.getElementById('hre-type')?.value||'Annual',
-    from, to,
-    days:document.getElementById('hre-days')?.value||'1',
-    status:document.getElementById('hre-status')?.value||'approved',
-    notes:document.getElementById('hre-notes')?.value.trim()||'',
+    id:_hrEditingId||hrUID(), name:member, member, type, from, to,
+    days:String(parseFloat(days)||1), status, notes,
   };
-  if(_hrEditingId){const i=window._hrLeave.findIndex(x=>x.id===_hrEditingId);if(i>-1)window._hrLeave[i]=record;else window._hrLeave.push(record);}
-  else window._hrLeave.push(record);
-  hrSave();closeModal('hr-entry-modal');renderHrTab();showToast('Leave record saved ✓');
+  if(_hrEditingId){
+    const i=window._hrLeave.findIndex(x=>x.id===_hrEditingId);
+    if(i>-1) window._hrLeave[i]=record;
+    else window._hrLeave.push(record);
+  } else {
+    window._hrLeave.push(record);
+  }
+  hrSave();
+  closeModal('hr-entry-modal');
+  renderHrTab();
+  showToast('Leave record saved ✓');
 }
 
 function saveHrDevice(){
