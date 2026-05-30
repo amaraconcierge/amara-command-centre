@@ -1269,6 +1269,10 @@ div:hover > .complete-tooltip { opacity: 1 !important; }
         </select>
         <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted2);margin-bottom:2px;">Category</div>
         <select class="filter-select" id="f-cat" onchange="renderTasks();updateFilterBadge()" style="width:100%;margin-bottom:10px;"></select>
+        <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted2);margin-bottom:2px;">Patient</div>
+        <select class="filter-select" id="f-patient" onchange="renderTasks();updateFilterBadge()" style="width:100%;margin-bottom:10px;">
+          <option value="">All patients</option>
+        </select>
         <button onclick="clearAllFilters()" style="font-family:var(--sans);font-size:11px;font-weight:700;padding:5px 10px;border-radius:7px;border:1px solid var(--border2);background:transparent;color:var(--muted);cursor:pointer;width:100%;">✕ Clear filters</button>
       </div>
     </div>
@@ -3248,8 +3252,8 @@ async function forceReloadFromCloud(){
       medEntries = d.medications;
       try{ localStorage.setItem(MED_KEY, JSON.stringify(medEntries)); }catch(e){}
     }
-    if(d.hr_leave    && d.hr_leave.length > 0){   window._hrLeave   = d.hr_leave;   try{localStorage.setItem(HR_LEAVE_KEY,   JSON.stringify(window._hrLeave));  }catch(e){} }
-    if(d.hr_devices  && d.hr_devices.length > 0){  window._hrDevices = d.hr_devices;  try{localStorage.setItem(HR_DEVICES_KEY, JSON.stringify(window._hrDevices));}catch(e){} }
+    if(d.hr_leave    && d.hr_leave.length > 0)   window._hrLeave   = d.hr_leave;
+    if(d.hr_devices  && d.hr_devices.length > 0) window._hrDevices = d.hr_devices;
 
     // Save to localStorage so it persists
     try{
@@ -3300,8 +3304,8 @@ async function syncLoad(){
       // Persist to dedicated key immediately so medLoad() finds it
       try{ localStorage.setItem(MED_KEY, JSON.stringify(medEntries)); }catch(e){}
     }
-    if(d.hr_leave    && d.hr_leave.length    > (window._hrLeave||[]).length){   window._hrLeave   = d.hr_leave;   try{localStorage.setItem(HR_LEAVE_KEY,   JSON.stringify(window._hrLeave));  }catch(e){} }
-    if(d.hr_devices  && d.hr_devices.length  > (window._hrDevices||[]).length){  window._hrDevices = d.hr_devices;  try{localStorage.setItem(HR_DEVICES_KEY, JSON.stringify(window._hrDevices));}catch(e){} }
+    if(d.hr_leave    && d.hr_leave.length    > (window._hrLeave||[]).length)    window._hrLeave   = d.hr_leave;
+    if(d.hr_devices  && d.hr_devices.length  > (window._hrDevices||[]).length)  window._hrDevices = d.hr_devices;
 
     console.log('[syncLoad] Supabase loaded: tasks='+state.tasks.length+' patients='+(patients||[]).length);
 
@@ -4709,7 +4713,18 @@ function isTodayDate(ds){ return ds === today(); }
 function fmtDisplay(d){ return d.toLocaleDateString('en-GB',{timeZone:'Asia/Dubai',day:'numeric',month:'short',year:'numeric'}); }
 
 // ── CATEGORY HELPERS ─────────────────────────────────────
-function getCat(id){ return state.categories.find(c=>c.id===id) || {name:id, color:'#6B8C7C'}; }
+function getCat(id){
+  if(!id) return {name:'Uncategorised', color:'#6B8C7C'};
+  // Exact match first
+  let cat = state.categories.find(c=>c.id===id);
+  if(cat) return cat;
+  // Case-insensitive match (handles CAT_ vs cat_ prefix differences)
+  cat = state.categories.find(c=>c.id.toLowerCase()===id.toLowerCase());
+  if(cat) return cat;
+  // Fallback: show a cleaner name (strip CAT_ / cat_ prefix + timestamp)
+  const cleanName = id.replace(/^(CAT_|cat_)\d+$/i,'').trim() || id.replace(/^(CAT_|cat_)/i,'').replace(/_\d+$/,'').trim() || id;
+  return {name:cleanName||id, color:'#6B8C7C', _unknown:true};
+}
 function getMember(id){ 
   if(!id) return null;
   // Accept both member ID and member name (for backward compatibility)
@@ -4762,6 +4777,7 @@ function getFilteredTasks(){
   const fPri     = document.getElementById('f-priority')?.value||'';
   const fCat     = document.getElementById('f-cat')?.value||'';
   const fAssignee= document.getElementById('f-assignee')?.value||'';
+  const fPatient = document.getElementById('f-patient')?.value||'';
   const fSort    = document.getElementById('f-sort')?.value||'priority';
   const todayStr = today();
 
@@ -4790,6 +4806,7 @@ function getFilteredTasks(){
     if(fPri      && t.priority !== fPri)      return false;
     if(fCat      && t.category !== fCat)      return false;
     if(fAssignee && t.assignee !== fAssignee && getMember(t.assignee)?.id !== fAssignee) return false;
+    if(fPatient  && t.patientRef !== fPatient) return false;
     return true;
   });
 
@@ -4956,7 +4973,15 @@ function renderKanban(tasks){
                   onmouseleave="this.style.background='var(--white)';this.style.borderColor='var(--green-mid)'">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0f5132" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                 </button>`:''}
-                ${isDone?`<span style="font-size:9px;font-weight:700;color:var(--green);padding:2px 7px;border-radius:10px;background:var(--green-pale);">✓ Done</span>`:''}
+                <div style="flex:1;"></div>
+                ${isDone
+                  ? `<span style="font-size:9px;font-weight:700;color:var(--green);padding:2px 8px;border-radius:10px;background:var(--green-pale);display:inline-flex;align-items:center;gap:3px;"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Done</span>`
+                  : `<button onclick="event.stopPropagation();markTaskDone('${t.id}')" title="Mark as complete"
+                      style="font-family:var(--sans);height:24px;padding:0 10px;border-radius:100px;border:1.5px solid #BBF7D0;background:var(--white);color:#16A34A;cursor:pointer;display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:700;transition:all 0.15s;white-space:nowrap;"
+                      onmouseover="this.style.background='#16A34A';this.style.borderColor='#16A34A';this.style.color='#fff'"
+                      onmouseleave="this.style.background='var(--white)';this.style.borderColor='#BBF7D0';this.style.color='#16A34A'">
+                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Complete
+                    </button>`}
               </div>
             </div>`;
           }).join('')}
@@ -5098,10 +5123,15 @@ function renderSwimLane(tasks){
               ${catTasks.map(t=>{
                 const leaveWarn = m.id!=='__unassigned__' && t.due && isOnLeave(m.id, t.due);
                 const statusColor = STATUS_COLORS[t.status];
-                return `<div class="swim-task-chip" style="background:${getCatBg(cat.color)};border-left-color:${cat.color};color:var(--text)" onclick="openTaskModal('${t.id}')">
-                  ${t.title}
-                  <span style="font-size:9px;color:${statusColor};font-weight:700;display:block;margin-top:2px">${STATUS_LABELS[t.status]}</span>
-                  ${leaveWarn?`<span class="leave-warning">🏖 On leave on due date</span>`:''}
+                return `<div class="swim-task-chip" style="background:${getCatBg(cat.color)};border-left-color:${cat.color};color:var(--text);">
+                  <div onclick="openTaskModal('${t.id}')" style="flex:1;cursor:pointer;">
+                    <div>${t.title}</div>
+                    <span style="font-size:9px;color:${statusColor};font-weight:700;display:block;margin-top:2px">${STATUS_LABELS[t.status]}</span>
+                    ${leaveWarn?`<span class="leave-warning">🏖 On leave on due date</span>`:''}
+                  </div>
+                  ${t.status!=='done'
+                    ? `<button onclick="event.stopPropagation();markTaskDone('${t.id}')" title="Complete" style="font-family:var(--sans);margin-top:5px;width:100%;padding:3px 0;border-radius:6px;border:1px solid #BBF7D0;background:transparent;color:#16A34A;font-size:9px;font-weight:700;cursor:pointer;transition:all 0.12s;" onmouseover="this.style.background='#16A34A';this.style.color='#fff';this.style.borderColor='#16A34A'" onmouseleave="this.style.background='transparent';this.style.color='#16A34A';this.style.borderColor='#BBF7D0'">✓ Complete</button>`
+                    : `<div style="margin-top:5px;width:100%;padding:3px 0;border-radius:6px;background:#F0FDF4;color:#16A34A;font-size:9px;font-weight:700;text-align:center;">✓ Done</div>`}
                 </div>`;
               }).join('')}
               ${!catTasks.length?`<span style="font-size:10px;color:var(--muted2);">—</span>`:''}
@@ -6403,7 +6433,7 @@ function updateFilterBadge(){
 }
 
 function clearAllFilters(){
-  ['f-priority','f-assignee','f-cat'].forEach(id=>{
+  ['f-priority','f-assignee','f-cat','f-patient'].forEach(id=>{
     const el = document.getElementById(id);
     if(el) el.value = '';
   });
@@ -6843,6 +6873,18 @@ function setView(v){
 
 // ── FILTER SELECTS ───────────────────────────────────────
 function updateFilterSelects(){
+  // Patient filter — only show patients that have tasks linked
+  const ptSel = document.getElementById('f-patient');
+  if(ptSel){
+    const cur = ptSel.value;
+    const ptIds = [...new Set(state.tasks.filter(t=>t.patientRef).map(t=>t.patientRef))];
+    const ptOpts = ptIds
+      .map(id=>{ const p=patients.find(x=>x.id===id); return p?{id,name:ptDisplayName(p)}:null; })
+      .filter(Boolean)
+      .sort((a,b)=>a.name.localeCompare(b.name))
+      .map(({id,name})=>`<option value="${id}" ${cur===id?'selected':''}>${name}</option>`);
+    ptSel.innerHTML='<option value="">All patients</option>'+ptOpts.join('');
+  }
   const fc = document.getElementById('f-cat');
   const fa = document.getElementById('f-assignee');
   if(fc){
@@ -10937,7 +10979,7 @@ function renderPatientSearchList(){
   if(fFlag==='amaraone') list=list.filter(p=>p.amaraone);
 
   // A-Z sort
-  list.sort((a,b)=>(a.lname||'').localeCompare(b.lname||'')||(a.fname||'').localeCompare(b.fname||''));
+  list.sort((a,b)=>(a.fname||'').localeCompare(b.fname||'')||(a.lname||'').localeCompare(b.lname||''));
 
   // Active filter count for badge
   const activeFilters = [fPhysician,fRegion,fEmr,fFlag].filter(Boolean).length;
@@ -11097,7 +11139,7 @@ function ptBulkDelete(){
 }
 
 function renderAlphaNav(list){
-  const letters=[...new Set(list.map(p=>(p.lname||'#')[0].toUpperCase()))].sort();
+  const letters=[...new Set(list.map(p=>(p.fname||'#')[0].toUpperCase()))].sort();
   const nav=document.getElementById('pt-alpha-nav');
   if(!nav) return;
   if(letters.length<3){ nav.style.display='none'; return; }
@@ -11133,7 +11175,7 @@ function renderPatientGrid(list){
   }
   const letterGroups = {};
   list.forEach(p=>{
-    const letter = (p.lname||'#')[0].toUpperCase();
+    const letter = (p.fname||'#')[0].toUpperCase();
     if(!letterGroups[letter]) letterGroups[letter]=[];
     letterGroups[letter].push(p);
   });
@@ -11548,7 +11590,7 @@ function renderPtOverview(p){
           :recentNotes.map(n=>`
             <div class="pt-note-chip" style="border-left-color:${ptNoteCatColor(n.cat)};">
               <div style="font-size:9px;font-weight:800;letter-spacing:0.07em;text-transform:uppercase;color:${ptNoteCatColor(n.cat)};">${n.cat}</div>
-              <div style="font-size:12px;color:var(--text);line-height:1.5;margin-top:2px;">${n.text}</div>
+              <div style="font-size:12px;color:var(--text);line-height:1.5;margin-top:2px;">${ptFormatNoteText(n.text)}</div>
               <div style="font-size:10px;color:var(--muted2);margin-top:3px;font-family:'DM Mono',monospace;">${ptFormatDateTime(n.created)}</div>
             </div>`).join('')}
       </div>
@@ -11575,6 +11617,14 @@ function renderPtOverview(p){
   `;
 }
 function ptNoteCatColor(cat){ return {general:'var(--green-mid)',medication:'#2176C7',arrangement:'#7B61D8',clinical:'#D4621A',followup:'#D4A017'}[cat]||'var(--green-mid)'; }
+
+// Format note text preserving newlines and basic markdown-style formatting
+function ptFormatNoteText(text){
+  if(!text) return '';
+  return text
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\n/g,'<br>');
+}
 
 // ── NOTES ────────────────────────────────────────────
 function renderPtNotes(p){
@@ -14208,53 +14258,23 @@ let _hrYear       = new Date().getFullYear();
 let _hrMonth      = new Date().getMonth(); // 0-based
 
 function hrLoad(){
-  // Only read from localStorage if in-memory is empty — never overwrite data saved this session
-  if(!window._hrLeave || !window._hrLeave.length){
-    try{ window._hrLeave = JSON.parse(localStorage.getItem(HR_LEAVE_KEY)||'[]'); }catch(e){ window._hrLeave=[]; }
-  }
-  if(!window._hrDevices || !window._hrDevices.length){
-    try{ window._hrDevices = JSON.parse(localStorage.getItem(HR_DEVICES_KEY)||'[]'); }catch(e){ window._hrDevices=[]; }
-  }
+  try{ window._hrLeave   = JSON.parse(localStorage.getItem(HR_LEAVE_KEY)||'[]'); }catch(e){ window._hrLeave=[]; }
+  try{ window._hrDevices = JSON.parse(localStorage.getItem(HR_DEVICES_KEY)||'[]'); }catch(e){ window._hrDevices=[]; }
 }
 function hrSave(){
   localStorage.setItem(HR_LEAVE_KEY,   JSON.stringify(window._hrLeave));
   localStorage.setItem(HR_DEVICES_KEY, JSON.stringify(window._hrDevices));
 }
 function hrUID(){ return 'hr_'+Date.now()+'_'+Math.random().toString(36).slice(2,5); }
-
-// Match a leave record's member name to a state.team name
-// Handles cases where leave records have full names but team uses first names
-function hrMatchMember(recordName, teamName){
-  if(!recordName || !teamName) return false;
-  if(recordName === teamName) return true;
-  const tn = teamName.trim().toLowerCase();
-  const rn = recordName.trim().toLowerCase();
-  // Exact first-word match: "Ellaine" matches "Princess Ellaine Mateo" because "ellaine" is a whole word in rn
-  // Use word-boundary check to avoid "Ari" matching "Carmela" etc.
-  const rnWords = rn.split(/\s+/);
-  const tnWords = tn.split(/\s+/);
-  // Every word of teamName must appear as a whole word somewhere in recordName
-  return tnWords.every(tw => rnWords.some(rw => rw === tw));
-}
-
-// Get the display name for a leave record (maps to state.team name if possible)
-function hrGetMemberName(recordName){
-  const teamMember = (state?.team||[]).find(m=>hrMatchMember(recordName, m.name));
-  return teamMember ? teamMember.name : recordName;
-}
 function hrChangeMonth(d){ _hrMonth+=d; if(_hrMonth>11){_hrMonth=0;_hrYear++;} if(_hrMonth<0){_hrMonth=11;_hrYear--;} renderHrTab(); }
 function hrGoToday(){ _hrYear=new Date().getFullYear(); _hrMonth=new Date().getMonth(); renderHrTab(); }
 
 // Leave type colours
 const HR_LEAVE_COLORS = {
-  'Annual':           {bg:'#DBEAFE',color:'#1D4ED8',label:'Annual'},
-  'Sick':             {bg:'#FEE2E2',color:'#991B1B',label:'Sick'},
-  'Holiday in Lieu':  {bg:'#D1FAE5',color:'#065F46',label:'HiL'},
-  'Public Holiday':   {bg:'#FEF3C7',color:'#B45309',label:'PH'},
-  'Bereavement':      {bg:'#F3E8FF',color:'#6B21A8',label:'Berv'},
-  'Compassionate':    {bg:'#FCE7F3',color:'#9D174D',label:'Comp'},
-  'Unpaid':           {bg:'#F3F4F6',color:'#374151',label:'Unpd'},
-  'Other':            {bg:'#FFF7ED',color:'#C2410C',label:'Othr'},
+  'Holiday in Lieu':    {bg:'#D1FAE5',color:'#065F46',label:'In Lieu'},
+  'Annual':             {bg:'#DBEAFE',color:'#1D4ED8',label:'Annual'},
+  'Sick':               {bg:'#FEE2E2',color:'#991B1B',label:'Sick'},
+  'Bereavement':        {bg:'#F3E8FF',color:'#6B21A8',label:'Bereavement'},
 };
 
 const HR_LEAVE_ENTITLEMENTS = {
@@ -14277,42 +14297,48 @@ function openHrLeaveAddForMember(member, yr){
 }
 
 function buildHrSummaryTable(allMembers){
-  const yr  = _hrSummaryYear;
-  const el  = document.getElementById('hr-summary-table');
+  const yr = _hrSummaryYear;
+  const el = document.getElementById('hr-summary-table');
   if(!el) return;
   const lbl = document.getElementById('hr-summary-year-label');
   if(lbl) lbl.textContent = yr;
 
+  // Default entitlements
   const DEFAULT_ANNUAL = 22;
   const DEFAULT_SICK   = 15;
-  const DEFAULT_PH     = 14;
+  const DEFAULT_PH     = 14; // Public holiday days per year (editable via PH entitlement record)
 
   let t = '<div style="background:var(--white);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;">'
         + '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">'
-        + '<table style="width:100%;min-width:700px;border-collapse:collapse;">'
+        + '<table style="width:100%;min-width:680px;border-collapse:collapse;">'
         + '<thead>';
 
-  // ── Group headers ──
+  // ── Column groups header ──
   t += '<tr style="background:var(--green);">'
-     + '<th style="text-align:left;padding:9px 14px;font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#fff;min-width:160px;position:sticky;left:0;background:var(--green);z-index:4;">STAFF MEMBER</th>'
-     + '<th colspan="2" style="text-align:center;padding:7px 8px;font-size:9px;font-weight:700;text-transform:uppercase;color:#fff;background:#1D4ED8;border-left:2px solid rgba(255,255,255,0.25);">ANNUAL</th>'
-     + '<th colspan="2" style="text-align:center;padding:7px 8px;font-size:9px;font-weight:700;text-transform:uppercase;color:#fff;background:#991B1B;border-left:2px solid rgba(255,255,255,0.25);">SICK</th>'
-     + '<th colspan="2" style="text-align:center;padding:7px 8px;font-size:9px;font-weight:700;text-transform:uppercase;color:#fff;background:#B45309;border-left:2px solid rgba(255,255,255,0.25);">PUBLIC HOLIDAY</th>'
-     + '<th colspan="2" style="text-align:center;padding:7px 8px;font-size:9px;font-weight:700;text-transform:uppercase;color:#fff;background:#065F46;border-left:2px solid rgba(255,255,255,0.25);">HOLIDAY IN LIEU</th>'
-     + '<th style="text-align:center;padding:7px 8px;font-size:9px;font-weight:700;text-transform:uppercase;color:#fff;border-left:2px solid rgba(255,255,255,0.25);">+&nbsp;ADD</th>'
+     + '<th style="text-align:left;padding:9px 14px;font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#fff;min-width:140px;position:sticky;left:0;background:var(--green);z-index:4;">Staff Member</th>'
+     + '<th colspan="2" style="text-align:center;padding:7px 8px;font-size:9px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#fff;background:#1D4ED8;border-left:1px solid rgba(255,255,255,0.2);">Annual Leave</th>'
+     + '<th colspan="2" style="text-align:center;padding:7px 8px;font-size:9px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#fff;background:#991B1B;border-left:1px solid rgba(255,255,255,0.2);">Sick Leave</th>'
+     + '<th colspan="3" style="text-align:center;padding:7px 8px;font-size:9px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#fff;background:#D97706;border-left:1px solid rgba(255,255,255,0.2);">Public Holidays</th>'
+     + '<th colspan="2" style="text-align:center;padding:7px 8px;font-size:9px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#fff;background:#065F46;border-left:1px solid rgba(255,255,255,0.2);">Holiday in Lieu</th>'
+     + '<th style="text-align:center;padding:9px 10px;font-size:9px;font-weight:700;text-transform:uppercase;color:#fff;border-left:1px solid rgba(255,255,255,0.2);">+ Add</th>'
      + '</tr>';
 
   // ── Sub-headers ──
-  t += '<tr style="background:var(--bg);border-bottom:2px solid var(--border);">'
+  t += '<tr style="background:var(--bg);border-bottom:1px solid var(--border);">'
      + '<th></th>'
-     + '<th style="text-align:center;padding:4px 8px;font-size:8px;font-weight:700;color:var(--muted2);min-width:50px;border-left:2px solid rgba(29,78,216,0.12);">Taken</th>'
-     + '<th style="text-align:center;padding:4px 8px;font-size:8px;font-weight:700;color:#1D4ED8;min-width:50px;">Left</th>'
-     + '<th style="text-align:center;padding:4px 8px;font-size:8px;font-weight:700;color:var(--muted2);min-width:50px;border-left:2px solid rgba(153,27,27,0.12);">Taken</th>'
-     + '<th style="text-align:center;padding:4px 8px;font-size:8px;font-weight:700;color:#991B1B;min-width:50px;">Left</th>'
-     + '<th style="text-align:center;padding:4px 8px;font-size:8px;font-weight:700;color:#B45309;min-width:54px;border-left:2px solid rgba(180,83,9,0.12);">Total&nbsp;✏</th>'
-     + '<th style="text-align:center;padding:4px 8px;font-size:8px;font-weight:700;color:#B45309;min-width:54px;">Remaining</th>'
-     + '<th style="text-align:center;padding:4px 8px;font-size:8px;font-weight:700;color:var(--muted2);min-width:50px;border-left:2px solid rgba(6,95,70,0.12);">Taken</th>'
-     + '<th style="text-align:center;padding:4px 8px;font-size:8px;font-weight:700;color:#065F46;min-width:58px;cursor:help;" title="Click a row to record HiL or view records">Record&nbsp;📋</th>'
+     // Annual
+     + '<th style="text-align:center;padding:4px 6px;font-size:8px;font-weight:700;color:var(--muted2);min-width:48px;">Taken</th>'
+     + '<th style="text-align:center;padding:4px 6px;font-size:8px;font-weight:700;color:#1D4ED8;min-width:48px;">Left</th>'
+     // Sick
+     + '<th style="text-align:center;padding:4px 6px;font-size:8px;font-weight:700;color:var(--muted2);min-width:48px;">Taken</th>'
+     + '<th style="text-align:center;padding:4px 6px;font-size:8px;font-weight:700;color:#991B1B;min-width:48px;">Left</th>'
+     // Public Holidays
+     + '<th style="text-align:center;padding:4px 6px;font-size:8px;font-weight:700;color:#D97706;min-width:52px;">Total ✏</th>'
+     + '<th style="text-align:center;padding:4px 6px;font-size:8px;font-weight:700;color:var(--muted2);min-width:48px;">Used (HiL)</th>'
+     + '<th style="text-align:center;padding:4px 6px;font-size:8px;font-weight:700;color:#D97706;min-width:48px;">Remaining</th>'
+     // Holiday in Lieu
+     + '<th style="text-align:center;padding:4px 6px;font-size:8px;font-weight:700;color:var(--muted2);min-width:48px;">Taken</th>'
+     + '<th style="text-align:center;padding:4px 6px;font-size:8px;font-weight:700;color:#065F46;min-width:48px;">Record 📋</th>'
      + '<th></th>'
      + '</tr></thead><tbody>';
 
@@ -14320,70 +14346,74 @@ function buildHrSummaryTable(allMembers){
     const memberColor = (state?.team||[]).find(m=>m.name===member)?.color||'#9AB5A8';
     const initials    = member.split(' ').map(w=>w[0]||'').join('').slice(0,2).toUpperCase();
 
-    // Year-filtered leave records for this member (matches by exact name OR first-name partial match)
-    const yearRecs = window._hrLeave.filter(r=>{
+    // All leave records for this member this year
+    const allRecs = window._hrLeave.filter(r=>{
       const nm = r.member||r.name;
-      if(!hrMatchMember(nm, member)) return false;
-      if(r.type==='_lieuBalance'||r.type==='_phEntitlement') return false;
-      return (r.from||r.startDate||r.date||'').startsWith(String(yr));
+      if(nm !== member) return false;
+      const d = r.from || r.startDate || r.date || '';
+      return d.startsWith(String(yr));
     });
-    const sumDays = tp => yearRecs.filter(r=>(r.type||r.leaveType)===tp)
-      .reduce((s,r)=>s+(Number(r.days)||1), 0);
 
-    // Annual entitlement (custom via note or default)
-    const entNote   = window._hrLeave.find(r=>hrMatchMember(r.member||r.name, member) && r.notes && /entitlement[:\s]*(\d+)/i.test(r.notes));
+    const sumDays = tp => allRecs
+      .filter(r=>(r.type||r.leaveType)===tp && r.type!=='_lieuBalance')
+      .reduce((s,r)=> s + (r.days ? Number(r.days) : 1), 0);
+
+    // Custom annual entitlement
+    const entNote  = window._hrLeave.find(r=>(r.member||r.name)===member && r.notes && /entitlement[:\s]*(\d+)/i.test(r.notes));
     const annualEnt = entNote ? parseInt(entNote.notes.match(/entitlement[:\s]*(\d+)/i)[1]) : DEFAULT_ANNUAL;
 
-    // PH entitlement
-    const phEntRec = window._hrLeave.find(r=>hrMatchMember(r.member||r.name, member) && r.type==='_phEntitlement');
-    const phEnt    = phEntRec ? Number(phEntRec.days) : DEFAULT_PH;
+    // Public holiday entitlement — stored as a special record with type '_phEntitlement'
+    const phEntRec  = window._hrLeave.find(r=>(r.member||r.name)===member && r.type==='_phEntitlement');
+    const phEnt     = phEntRec ? Number(phEntRec.days) : DEFAULT_PH;
 
-    const annTaken  = sumDays('Annual');
-    const annLeft   = Math.max(0, annualEnt - annTaken);
-    const annC      = annLeft < 3 ? '#DC2626' : annLeft < 8 ? '#D97706' : '#16A34A';
+    // Annual
+    const annTaken = sumDays('Annual');
+    const annLeft  = Math.max(0, annualEnt - annTaken);
+    const annC     = annLeft < 3 ? '#DC2626' : annLeft < 7 ? '#D97706' : '#16A34A';
 
+    // Sick
     const sickTaken = sumDays('Sick');
     const sickLeft  = Math.max(0, DEFAULT_SICK - sickTaken);
     const sickC     = sickLeft < 3 ? '#DC2626' : '#991B1B';
 
-    // HiL taken deducts from PH
+    // Public Holidays — HiL taken deducts from PH remaining
     const hilTaken  = sumDays('Holiday in Lieu');
     const phRemain  = Math.max(0, phEnt - hilTaken);
-    const phC       = phRemain < 2 ? '#DC2626' : phRemain < 5 ? '#D97706' : '#B45309';
-    const hilC      = hilTaken > 0 ? '#065F46' : 'var(--muted2)';
+    const phC       = phRemain < 3 ? '#DC2626' : phRemain < 5 ? '#D97706' : '#92400E';
 
-    t += `<tr style="border-top:0.5px solid var(--border);" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">`;
+    t += '<tr style="border-top:0.5px solid var(--border);" onmouseover="this.style.background=\'var(--bg)\'" onmouseout="this.style.background=\'\'">';
 
-    // Name
+    // Name cell
     t += `<td style="padding:9px 14px;position:sticky;left:0;background:var(--white);z-index:1;border-right:1px solid var(--border);">
-      <div style="display:flex;align-items:center;gap:8px;">
-        <div style="width:28px;height:28px;border-radius:50%;background:${memberColor};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;flex-shrink:0;">${initials}</div>
-        <span style="font-family:var(--serif);font-size:13px;color:var(--text);white-space:nowrap;">${member}</span>
+      <div style="display:flex;align-items:center;gap:7px;">
+        <div style="width:26px;height:26px;border-radius:50%;background:${memberColor};display:flex;align-items:center;justify-content:center;font-family:var(--sans);font-size:9px;font-weight:700;color:#fff;">${initials}</div>
+        <span style="font-family:var(--serif);font-size:13px;color:var(--text);">${member}</span>
       </div></td>`;
 
-    // Annual: Taken | Left
-    t += `<td style="text-align:center;padding:9px 6px;font-size:11px;color:var(--muted);border-left:2px solid rgba(29,78,216,0.08);">${annTaken||'—'}</td>`;
-    t += `<td style="text-align:center;padding:9px 6px;font-size:13px;font-weight:800;color:${annC};">${annLeft}<span style="font-size:9px;font-weight:500;color:var(--muted2);"> of ${annualEnt}</span></td>`;
+    // Annual
+    t += `<td style="text-align:center;padding:8px 6px;font-size:11px;color:var(--muted);">${annTaken||'—'}</td>`;
+    t += `<td style="text-align:center;padding:8px 6px;font-size:12px;font-weight:700;color:${annC};">${annLeft}<span style="font-size:8px;color:var(--muted2);"> of ${annualEnt}</span></td>`;
 
-    // Sick: Taken | Left
-    t += `<td style="text-align:center;padding:9px 6px;font-size:11px;color:var(--muted);border-left:2px solid rgba(153,27,27,0.08);">${sickTaken||'—'}</td>`;
-    t += `<td style="text-align:center;padding:9px 6px;font-size:13px;font-weight:800;color:${sickC};">${sickLeft}</td>`;
+    // Sick
+    t += `<td style="text-align:center;padding:8px 6px;font-size:11px;color:var(--muted);">${sickTaken||'—'}</td>`;
+    t += `<td style="text-align:center;padding:8px 6px;font-size:12px;font-weight:700;color:${sickC};">${sickLeft}</td>`;
 
-    // Public Holiday: Total ✏ | Remaining
-    t += `<td style="text-align:center;padding:9px 6px;cursor:pointer;border-left:2px solid rgba(180,83,9,0.08);" onclick="openHrPHEntitlementModal('${member}')" title="Click to set PH entitlement">
-      <span style="font-size:13px;font-weight:800;color:#B45309;">${phEnt}</span>
-      <span style="font-size:9px;color:var(--muted2);"> ✏</span></td>`;
-    t += `<td style="text-align:center;padding:9px 6px;font-size:13px;font-weight:800;color:${phC};">${phRemain}</td>`;
+    // Public Holidays — click "Total" to set PH entitlement, no separate taken column
+    t += `<td style="text-align:center;padding:8px 6px;cursor:pointer;" onclick="openHrPHEntitlementModal('${member}')" title="Click to set public holiday entitlement">
+      <span style="font-size:12px;font-weight:700;color:#D97706;">${phEnt}</span>
+      <span style="font-size:9px;color:var(--muted2);"> days ✏</span></td>`;
+    t += `<td style="text-align:center;padding:8px 6px;font-size:11px;color:var(--muted);">${hilTaken||'—'}</td>`;
+    t += `<td style="text-align:center;padding:8px 6px;font-size:12px;font-weight:700;color:${phC};">${phRemain}</td>`;
 
-    // Holiday in Lieu: Taken | Record
-    t += `<td style="text-align:center;padding:9px 6px;font-size:11px;color:${hilC};border-left:2px solid rgba(6,95,70,0.08);">${hilTaken||'—'}</td>`;
-    t += `<td style="text-align:center;padding:9px 6px;cursor:pointer;" onclick="openHrPubHolModal('${member}')" title="Record HiL or view history">
-      <span style="font-size:9px;background:#D1FAE5;color:#065F46;padding:3px 8px;border-radius:20px;font-weight:700;">View&nbsp;📋</span></td>`;
+    // Holiday in Lieu — taken this year + click to see/add records
+    t += `<td style="text-align:center;padding:8px 6px;font-size:11px;color:var(--muted);">${hilTaken||'—'}</td>`;
+    t += `<td style="text-align:center;padding:8px 6px;cursor:pointer;" onclick="openHrPubHolModal('${member}')" title="View / add Holiday in Lieu records">
+      <span style="font-size:9px;background:#D1FAE5;color:#065F46;padding:3px 8px;border-radius:20px;font-weight:700;">View 📋</span></td>`;
 
-    // + Add
+    // Add button
     t += `<td style="text-align:center;padding:8px;">
-      <button onclick="openHrLeaveAddForMember('${member}','${yr}')"
-        style="font-family:var(--sans);width:28px;height:28px;border-radius:50%;border:none;background:var(--green);color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;margin:0 auto;">+</button>
+      <button onclick="openHrLeaveAddForMember('${member}','${yr}')" title="Add leave record"
+        style="font-family:var(--sans);width:26px;height:26px;border-radius:50%;border:none;background:var(--green);color:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;margin:0 auto;">+</button>
     </td></tr>`;
   });
 
@@ -14391,6 +14421,7 @@ function buildHrSummaryTable(allMembers){
   el.innerHTML = t;
 }
 
+// Set a staff member's public holiday entitlement for the year
 function openHrPHEntitlementModal(member){
   const existing = window._hrLeave.find(r=>(r.member||r.name)===member && r.type==='_phEntitlement');
   const current  = existing ? Number(existing.days) : 14;
@@ -14513,8 +14544,16 @@ function renderHrLeaveCalendar(el, search){
   const daysInMonth = lastDay.getDate();
   const todayStr = today();
 
-  // Use ONLY state.team for member list — no merging with leave record names (avoids duplicates)
-  const allMembers = (state?.team||[]).map(m=>m.name).filter(Boolean).sort();
+  // Get all team members from state.team + any in leave records
+  const teamFromState = (state?.team||[]).map(m=>m.name);
+  // Use only names that appear in the leave records — source of truth
+  // (avoids duplicates when state.team has first-name-only entries)
+  const teamFromLeave = [...new Set(
+    window._hrLeave
+      .filter(r=>r.type !== '_lieuBalance' && r.type !== '_phEntitlement') // exclude internal records
+      .map(r=>r.member||r.name)
+  )].filter(Boolean);
+  const allMembers = teamFromLeave.sort();
 
   // Filter by search
   const members = search ? allMembers.filter(m=>m.toLowerCase().includes(search)) : allMembers;
@@ -14527,25 +14566,21 @@ function renderHrLeaveCalendar(el, search){
     const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
     return window._hrLeave.filter(r=>{
       if(r.type==='_lieuBalance' || r.type==='_phEntitlement') return false;
-      return hrMatchMember(r.member||r.name, member) && r.from<=dateStr && (r.to||r.from)>=dateStr;
+      return (r.member||r.name)===member && r.from<=dateStr && (r.to||r.from)>=dateStr;
     });
   };
 
-  // Calculate leave summary for a member
-  const DEFAULT_ANN_ENT = 22;
-  const DEFAULT_PH_ENT  = 14;
+  // Annual leave entitlement and days taken
+  const ANNUAL_ENTITLEMENT = 30; // default; editable per member via notes
   const getSummary = (member) => {
-    const records = window._hrLeave.filter(r=>hrMatchMember(r.member||r.name, member) && r.type!=='_lieuBalance' && r.type!=='_phEntitlement');
-    const sum = tp => records.filter(r=>r.type===tp).reduce((s,r)=>s+(parseFloat(r.days)||0),0);
-    const entitleNote = window._hrLeave.find(r=>hrMatchMember(r.member||r.name, member) && r.notes && /entitlement[:\s]*(\d+)/i.test(r.notes));
-    const annEnt = entitleNote ? parseInt(entitleNote.notes.match(/entitlement[:\s]*(\d+)/i)[1]) : DEFAULT_ANN_ENT;
-    const phEntRec = window._hrLeave.find(r=>hrMatchMember(r.member||r.name, member) && r.type==='_phEntitlement');
-    const phEnt   = phEntRec ? Number(phEntRec.days) : DEFAULT_PH_ENT;
-    const annTaken = sum('Annual');
-    const sickTaken = sum('Sick');
-    const hilTaken  = sum('Holiday in Lieu');
-    const phRemain  = Math.max(0, phEnt - hilTaken);
-    return {annTaken, annEnt, sickTaken, hilTaken, phEnt, phRemain, remaining: Math.max(0, annEnt - annTaken)};
+    const records = window._hrLeave.filter(r=>(r.member||r.name)===member);
+    const annualTaken = records.filter(r=>r.type==='Annual').reduce((s,r)=>s+(parseFloat(r.days)||0),0);
+    const sickTaken   = records.filter(r=>r.type==='Sick').reduce((s,r)=>s+(parseFloat(r.days)||0),0);
+    const publicHols  = records.filter(r=>r.type==='Public Holiday').reduce((s,r)=>s+(parseFloat(r.days)||0),0);
+    const lieuDays    = records.filter(r=>r.type==='Holiday in Lieu').reduce((s,r)=>s+(parseFloat(r.days)||0),0);
+    const entitleNote = records.find(r=>r.notes&&/entitlement[:\s]*(\d+)/i.test(r.notes));
+    const entitlement = entitleNote ? parseInt(entitleNote.notes.match(/entitlement[:\s]*(\d+)/i)[1]) : ANNUAL_ENTITLEMENT;
+    return {annualTaken, sickTaken, publicHols, lieuDays, entitlement, remaining: entitlement - annualTaken};
   };
 
   // Day header: weekdays get a light shade
@@ -14573,7 +14608,7 @@ function renderHrLeaveCalendar(el, search){
       const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
       const records = getLeaveForDay(member, d);
       const rec = records[0];
-      const lc = rec ? (HR_LEAVE_COLORS[rec.type]||{bg:'#FFF7ED',color:'#C2410C',label:rec.type.slice(0,4)}) : null;
+      const lc = rec ? (HR_LEAVE_COLORS[rec.type]||HR_LEAVE_COLORS.Other) : null;
       const bg = rec ? lc.bg : isWeekend ? '#F9FAFB' : 'var(--white)';
       const tooltip = rec ? `${rec.type}: ${rec.from}${rec.to&&rec.to!==rec.from?' → '+rec.to:''} (${rec.days}d)` : `Add leave for ${member} on ${dateStr}`;
       // Always clickable — existing record opens edit, empty opens new pre-filled
@@ -14595,25 +14630,21 @@ function renderHrLeaveCalendar(el, search){
       <!-- Day cells -->
       <div style="display:flex;flex:1;overflow-x:visible;">${cellsHTML}</div>
       <!-- Summary cols — click to edit -->
-      <div onclick="openHrEntryModalPrefilled('${member}','${new Date(_hrYear,_hrMonth,1).toISOString().slice(0,10)}','Annual')" title="Annual taken — click to add" style="min-width:48px;width:48px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#DBEAFE;border-left:1px solid var(--border);cursor:pointer;transition:filter 0.1s;" onmouseover="this.style.filter='brightness(0.92)'" onmouseout="this.style.filter='none'">
-        <span style="font-size:10px;font-weight:800;color:#1D4ED8;">${summary.annTaken||0}</span>
-        <span style="font-size:7px;color:#1D4ED8;opacity:0.8;">Ann ✏</span>
+      <div onclick="openHrEntryModalPrefilled('${member}','${new Date(_hrYear,_hrMonth,1).toISOString().slice(0,10)}','Annual')" title="Click to add Annual leave" style="min-width:50px;width:50px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#DBEAFE;border-left:1px solid var(--border);cursor:pointer;transition:filter 0.1s;" onmouseover="this.style.filter='brightness(0.92)'" onmouseout="this.style.filter='none'">
+        <span style="font-size:10px;font-weight:800;color:#1D4ED8;">${summary.annualTaken||0}</span>
+        <span style="font-size:7px;color:#1D4ED8;opacity:0.7;">✏</span>
       </div>
-      <div onclick="openHrEntryModalPrefilled('${member}','${new Date(_hrYear,_hrMonth,1).toISOString().slice(0,10)}','Sick')" title="Sick days — click to add" style="min-width:48px;width:48px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#FEE2E2;border-left:1px solid var(--border);cursor:pointer;transition:filter 0.1s;" onmouseover="this.style.filter='brightness(0.92)'" onmouseout="this.style.filter='none'">
+      <div onclick="openHrPubHolModal('${member}')" title="Public holidays taken — click to add/manage" style="min-width:50px;width:50px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#FEF3C7;border-left:1px solid var(--border);cursor:pointer;transition:filter 0.1s;" onmouseover="this.style.filter='brightness(0.92)'" onmouseout="this.style.filter='none'">
+        <span style="font-size:10px;font-weight:800;color:#92400E;">${summary.publicHols||0}</span>
+        <span style="font-size:7px;color:#92400E;opacity:0.7;">${summary.lieuDays>0?'+'+summary.lieuDays+'L':'hols'}</span>
+      </div>
+      <div onclick="openHrEntryModalPrefilled('${member}','${new Date(_hrYear,_hrMonth,1).toISOString().slice(0,10)}','Sick')" title="Click to add Sick leave" style="min-width:50px;width:50px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#FEE2E2;border-left:1px solid var(--border);cursor:pointer;transition:filter 0.1s;" onmouseover="this.style.filter='brightness(0.92)'" onmouseout="this.style.filter='none'">
         <span style="font-size:10px;font-weight:800;color:#991B1B;">${summary.sickTaken||0}</span>
-        <span style="font-size:7px;color:#991B1B;opacity:0.8;">Sick ✏</span>
+        <span style="font-size:7px;color:#991B1B;opacity:0.7;">✏</span>
       </div>
-      <div onclick="openHrPubHolModal('${member}')" title="Holiday in Lieu — click to record/view" style="min-width:48px;width:48px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#D1FAE5;border-left:1px solid var(--border);cursor:pointer;transition:filter 0.1s;" onmouseover="this.style.filter='brightness(0.92)'" onmouseout="this.style.filter='none'">
-        <span style="font-size:10px;font-weight:800;color:#065F46;">${summary.hilTaken||0}</span>
-        <span style="font-size:7px;color:#065F46;opacity:0.8;">HiL ✏</span>
-      </div>
-      <div onclick="openHrPHEntitlementModal('${member}')" title="PH remaining — click to set entitlement" style="min-width:48px;width:48px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:${summary.phRemain<3?'#FEE2E2':summary.phRemain<6?'#FEF3C7':'#FEF9C3'};border-left:1px solid var(--border);cursor:pointer;transition:filter 0.1s;" onmouseover="this.style.filter='brightness(0.92)'" onmouseout="this.style.filter='none'">
-        <span style="font-size:10px;font-weight:800;color:${summary.phRemain<3?'#DC2626':summary.phRemain<6?'#D97706':'#B45309'};">${summary.phRemain}</span>
-        <span style="font-size:7px;color:#B45309;opacity:0.8;">PH ✏</span>
-      </div>
-      <div onclick="openHrEntitlementModal('${member}')" title="Annual days left — click to edit entitlement" style="min-width:52px;width:52px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:${summary.remaining<5?'#FEE2E2':summary.remaining<10?'#FEF3C7':'#DCFCE7'};border-left:1px solid var(--border);cursor:pointer;transition:filter 0.1s;" onmouseover="this.style.filter='brightness(0.92)'" onmouseout="this.style.filter='none'">
+      <div onclick="openHrEntitlementModal('${member}')" title="Click to set annual entitlement or view remaining" style="min-width:60px;width:60px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:${summary.remaining<5?'#FEE2E2':summary.remaining<10?'#FEF3C7':'#DCFCE7'};border-left:1px solid var(--border);cursor:pointer;transition:filter 0.1s;" onmouseover="this.style.filter='brightness(0.92)'" onmouseout="this.style.filter='none'">
         <span style="font-size:10px;font-weight:800;color:${summary.remaining<5?'#991B1B':summary.remaining<10?'#92400E':'#065F46'};">${summary.remaining}</span>
-        <span style="font-size:7px;color:var(--muted2);opacity:0.8;">of ${summary.annEnt}</span>
+        <span style="font-size:7px;color:var(--muted2);opacity:0.7;">of ${summary.entitlement}</span>
       </div>
     </div>`;
   }).join('');
@@ -14639,11 +14670,10 @@ function renderHrLeaveCalendar(el, search){
       <div style="display:flex;align-items:stretch;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10;background:var(--white);">
         <div style="min-width:140px;width:140px;flex-shrink:0;padding:6px 10px;font-size:9px;font-weight:800;text-transform:uppercase;color:var(--muted2);background:var(--white);border-right:1px solid var(--border);">Staff member</div>
         <div style="display:flex;flex:1;">${dayHeaderHTML}</div>
-        <div style="min-width:48px;width:48px;flex-shrink:0;text-align:center;background:#EFF6FF;border-left:1px solid var(--border);padding:4px 2px;font-size:8px;font-weight:800;color:#1D4ED8;display:flex;align-items:center;justify-content:center;">Ann<br>Taken</div>
-        <div style="min-width:48px;width:48px;flex-shrink:0;text-align:center;background:#FEF2F2;border-left:1px solid var(--border);padding:4px 2px;font-size:8px;font-weight:800;color:#991B1B;display:flex;align-items:center;justify-content:center;">Sick<br>Days</div>
-        <div style="min-width:48px;width:48px;flex-shrink:0;text-align:center;background:#ECFDF5;border-left:1px solid var(--border);padding:4px 2px;font-size:8px;font-weight:800;color:#065F46;display:flex;align-items:center;justify-content:center;">HiL<br>Taken</div>
-        <div style="min-width:48px;width:48px;flex-shrink:0;text-align:center;background:#FEF9C3;border-left:1px solid var(--border);padding:4px 2px;font-size:8px;font-weight:800;color:#B45309;display:flex;align-items:center;justify-content:center;">PH<br>Left</div>
-        <div style="min-width:52px;width:52px;flex-shrink:0;text-align:center;background:#F0FDF4;border-left:1px solid var(--border);padding:4px 2px;font-size:8px;font-weight:800;color:#065F46;display:flex;align-items:center;justify-content:center;">Ann<br>Left</div>
+        <div style="min-width:50px;width:50px;flex-shrink:0;text-align:center;background:#EFF6FF;border-left:1px solid var(--border);padding:4px 2px;font-size:8px;font-weight:800;color:#1D4ED8;display:flex;align-items:center;justify-content:center;">Annual<br>Taken</div>
+        <div style="min-width:50px;width:50px;flex-shrink:0;text-align:center;background:#D1FAE5;border-left:1px solid var(--border);padding:4px 2px;font-size:8px;font-weight:800;color:#065F46;display:flex;align-items:center;justify-content:center;">In<br>Lieu</div>
+        <div style="min-width:50px;width:50px;flex-shrink:0;text-align:center;background:#FEF2F2;border-left:1px solid var(--border);padding:4px 2px;font-size:8px;font-weight:800;color:#991B1B;display:flex;align-items:center;justify-content:center;">Sick<br>Days</div>
+        <div style="min-width:60px;width:60px;flex-shrink:0;text-align:center;background:#F0FDF4;border-left:1px solid var(--border);padding:4px 2px;font-size:8px;font-weight:800;color:#065F46;display:flex;align-items:center;justify-content:center;">Annual<br>Left</div>
       </div>
 
       <!-- Member rows -->
@@ -14702,15 +14732,20 @@ function renderHrDevicesTable(el, search){
     const totalItems = hardware.length + medical.length;
 
     const makeRow = (d, i, arr) => `
-      <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;padding:9px 16px;
-        border-bottom:${i<arr.length-1?'0.5px solid var(--border)':'none'};align-items:start;"
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:8px;padding:9px 16px;
+        border-bottom:${i<arr.length-1?'0.5px solid var(--border)':'none'};align-items:center;"
         onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='transparent'">
         <div>
-          <div style="font-family:var(--serif);font-size:13px;color:var(--text);">${d.name}</div>
+          <div style="font-family:var(--serif);font-size:13px;color:var(--text);">${d.name||d.device||'—'}</div>
           ${d.description&&d.description!==d.name?`<div style="font-family:var(--sans);font-size:9px;color:var(--muted);margin-top:1px;line-height:1.4;">${d.description.split('\n')[0].slice(0,100)}</div>`:''}
+          ${d.serial?`<div style="font-family:var(--sans);font-size:9px;color:var(--muted2);margin-top:1px;">S/N: ${d.serial}</div>`:''}
         </div>
         <div style="font-family:var(--sans);font-size:10px;color:var(--muted);">${d.location||d.type||'—'}</div>
-        <div style="font-family:var(--sans);font-size:10px;color:var(--muted2);">${d.stock||'—'}</div>
+        <div style="font-family:var(--sans);font-size:10px;color:var(--muted2);">${d.stock||d.issued||'—'}</div>
+        <div style="display:flex;gap:5px;flex-shrink:0;">
+          <button onclick="openHrEntryModal('devices','${d.id}')" title="Edit" style="font-family:var(--sans);font-size:10px;font-weight:700;padding:3px 9px;border-radius:6px;border:1px solid var(--border);background:var(--white);color:var(--green);cursor:pointer;" onmouseover="this.style.borderColor='var(--green)';this.style.background='var(--green-pale)'" onmouseleave="this.style.borderColor='var(--border)';this.style.background='var(--white)'">✏ Edit</button>
+          <button onclick="deleteHrRecord('devices','${d.id}')" title="Delete" style="font-family:var(--sans);font-size:10px;font-weight:700;padding:3px 9px;border-radius:6px;border:1px solid #FEE2E2;background:var(--white);color:#DC2626;cursor:pointer;" onmouseover="this.style.background='#FEE2E2';this.style.borderColor='#DC2626'" onmouseleave="this.style.background='var(--white)';this.style.borderColor='#FEE2E2'">✕</button>
+        </div>
       </div>`;
 
     const hwRows   = hardware.map((d,i,arr)=>makeRow(d,i,arr)).join('');
@@ -14731,7 +14766,7 @@ function renderHrDevicesTable(el, search){
       </div>
       <!-- Column headers -->
       <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;padding:5px 16px;background:var(--bg);border-bottom:1px solid var(--border);">
-        ${['Item','Location / Type','Stock'].map(h=>`<div style="font-family:var(--sans);font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:var(--muted2);">${h}</div>`).join('')}
+        ${['Item','Location / Type','Stock / Issued',''].map(h=>`<div style="font-family:var(--sans);font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:var(--muted2);">${h}</div>`).join('')}
       </div>
       ${hwRows}
       ${medSection}
@@ -14859,11 +14894,12 @@ function saveHrDeviceRecord(recId, member){
 function openHrEntryModalPrefilled(member, dateStr, leaveType){
   _hrEditingId = null;
   document.getElementById('hr-entry-title').textContent = 'Add leave record';
-  const allNames = (state?.team||[]).map(m=>m.name).filter(Boolean).sort();
+  const leaveNames = [...new Set(window._hrLeave.map(r=>r.member||r.name))].filter(Boolean).sort();
+  const teamNames  = (state?.team||[]).map(m=>m.name);
+  const allNames   = [...new Set([...leaveNames, ...teamNames])];
   const memberOpts = '<option value="">— Select member —</option>'
     + allNames.map(n=>`<option value="${n}" ${n===member?'selected':''}>${n}</option>`).join('');
   document.getElementById('hr-entry-body').innerHTML = _hrLeaveForm(null, memberOpts, dateStr, dateStr, leaveType||'Annual');
-  setTimeout(()=>{ calcHrDays(); updateHrLeaveTypeHint(document.getElementById('hre-type')?.value||'Annual'); }, 50);
   openModal('hr-entry-modal');
 }
 
@@ -14873,17 +14909,17 @@ function openHrEntryModal(type, id){
   const existing = id ? (isLeave?window._hrLeave:window._hrDevices).find(x=>x.id===id) : null;
   document.getElementById('hr-entry-title').textContent = id ? (isLeave?'Edit leave record':'Edit device') : (isLeave?'Add leave record':'Add device');
 
-  // Use state.team only — avoids duplicates with leave seed data
-  const allNames = (state?.team||[]).map(m=>m.name).filter(Boolean).sort();
+  // For leave: use names from existing leave records as source of truth (avoids duplicate/mismatched names)
+  const leaveNames = [...new Set(window._hrLeave.map(r=>r.member||r.name))].filter(Boolean).sort();
+  const teamNames  = (state?.team||[]).map(m=>m.name);
+  // Merge: leave record names first, then any team names not already in the list
+  const allNames = [...new Set([...leaveNames, ...teamNames])];
   const existingName = existing?.member||existing?.name||'';
-  // When editing, find the matching team name even if the record has a full name
-  const matchedName = allNames.find(n=>hrMatchMember(existingName, n)) || existingName;
   const memberOpts = '<option value="">— Select member —</option>'
-    + allNames.map(n=>`<option value="${n}" ${matchedName===n?'selected':''}>${n}</option>`).join('');
+    + allNames.map(n=>`<option value="${n}" ${existingName===n?'selected':''}>${n}</option>`).join('');
 
   if(isLeave){
     document.getElementById('hr-entry-body').innerHTML = _hrLeaveForm(existing, memberOpts, existing?.from||'', existing?.to||'');
-  setTimeout(()=>{ calcHrDays(); updateHrLeaveTypeHint(document.getElementById('hre-type')?.value||''); }, 50);
   } else {
     document.getElementById('hr-entry-body').innerHTML=`
       <div class="form-row"><label class="form-label">Team member *</label><select class="form-select" id="hre-member">${memberOpts}</select></div>
@@ -14961,17 +14997,17 @@ function _hrLeaveForm(existing, memberOpts, fromVal, toVal, defaultType){
 
 function openHrPubHolModal(member){
   // PH entitlement for this member
-  const phEntRec  = window._hrLeave.find(r=>hrMatchMember(r.member||r.name, member) && r.type==='_phEntitlement');
+  const phEntRec  = window._hrLeave.find(r=>(r.member||r.name)===member && r.type==='_phEntitlement');
   const phEnt     = phEntRec ? Number(phEntRec.days) : 14;
 
   // HiL taken this year (deducted from PH)
   const yr        = _hrSummaryYear || new Date().getFullYear();
-  const hilRecs   = window._hrLeave.filter(r=>hrMatchMember(r.member||r.name, member) && r.type==='Holiday in Lieu' && (r.from||'').startsWith(String(yr)));
+  const hilRecs   = window._hrLeave.filter(r=>(r.member||r.name)===member && r.type==='Holiday in Lieu' && (r.from||'').startsWith(String(yr)));
   const hilTaken  = hilRecs.reduce((s,r)=>s+(parseFloat(r.days)||0),0);
   const phRemain  = Math.max(0, phEnt - hilTaken);
 
   // All HiL records sorted by date
-  const allHilRecs = window._hrLeave.filter(r=>hrMatchMember(r.member||r.name, member) && r.type==='Holiday in Lieu').sort((a,b)=>(b.from||'').localeCompare(a.from||''));
+  const allHilRecs = window._hrLeave.filter(r=>(r.member||r.name)===member && r.type==='Holiday in Lieu').sort((a,b)=>(b.from||'').localeCompare(a.from||''));
 
   const recHTML = allHilRecs.map(r=>`
     <div style="display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:0.5px solid var(--border);">
@@ -14984,7 +15020,7 @@ function openHrPubHolModal(member){
         style="background:none;border:none;color:var(--muted2);cursor:pointer;font-size:13px;padding:2px 4px;">✕</button>
     </div>`).join('') || '<div style="padding:10px 12px;font-size:11px;color:var(--muted2);text-align:center;">No HiL days taken yet</div>';
 
-  const memberOpts = (state?.team||[]).map(m=>m.name).filter(Boolean).sort().map(n=>`<option value="${n}" ${n===member?'selected':''}>${n}</option>`).join('');
+  const memberOpts = (state?.team||[]).map(m=>`<option value="${m.name}" ${m.name===member?'selected':''}>${m.name}</option>`).join('');
   const todayVal   = new Date().toISOString().slice(0,10);
   const phC        = phRemain < 3 ? '#DC2626' : phRemain < 5 ? '#D97706' : '#065F46';
 
@@ -15139,28 +15175,19 @@ function calcHrDays(){
 function saveHrLeave(){
   const member=document.getElementById('hre-member')?.value||'';
   const from=document.getElementById('hre-from')?.value||'';
-  if(!member){showToast('Please select a team member');return;}
-  if(!from){showToast('Please set a start date');return;}
-  const to=document.getElementById('hre-to')?.value||from;
-  const days=document.getElementById('hre-days')?.value||'1';
-  const type=document.getElementById('hre-type')?.value||'Annual';
-  const status=document.getElementById('hre-status')?.value||'approved';
-  const notes=document.getElementById('hre-notes')?.value.trim()||'';
+  if(!member||!from){showToast('Team member and start date required');return;}
+  const to=document.getElementById('hre-to')?.value||from; // default to = from (single day)
   const record={
-    id:_hrEditingId||hrUID(), name:member, member, type, from, to,
-    days:String(parseFloat(days)||1), status, notes,
+    id:_hrEditingId||hrUID(), name:member, member,
+    type:document.getElementById('hre-type')?.value||'Annual',
+    from, to,
+    days:document.getElementById('hre-days')?.value||'1',
+    status:document.getElementById('hre-status')?.value||'approved',
+    notes:document.getElementById('hre-notes')?.value.trim()||'',
   };
-  if(_hrEditingId){
-    const i=window._hrLeave.findIndex(x=>x.id===_hrEditingId);
-    if(i>-1) window._hrLeave[i]=record;
-    else window._hrLeave.push(record);
-  } else {
-    window._hrLeave.push(record);
-  }
-  hrSave();
-  closeModal('hr-entry-modal');
-  renderHrTab();
-  showToast('Leave record saved ✓');
+  if(_hrEditingId){const i=window._hrLeave.findIndex(x=>x.id===_hrEditingId);if(i>-1)window._hrLeave[i]=record;else window._hrLeave.push(record);}
+  else window._hrLeave.push(record);
+  hrSave();closeModal('hr-entry-modal');renderHrTab();showToast('Leave record saved ✓');
 }
 
 function saveHrDevice(){
