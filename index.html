@@ -3092,6 +3092,7 @@ let isSaving = false;
 let _initComplete = false; // Block auto-saves until init() has fully loaded from Supabase
 let _lastSyncedAt = null; // track when we last got data from Supabase
 let _pollTimer    = null;
+let _hasPendingLocalChanges = false; // true between a local edit and its successful cloud save — blocks live-sync from reverting it
 
 // ── LIVE SYNC POLLING ────────────────────────────────────
 // Polls Supabase every 10s to pick up changes from other devices
@@ -3102,6 +3103,10 @@ function startLiveSync(){
 
 async function liveSyncCheck(){
   if(isSaving || document.hidden) return;
+  // Don't reload from cloud while we have local edits not yet saved — otherwise
+  // a just-completed/edited task gets reverted by stale remote data (the race that
+  // made completed tasks "come back" after a few seconds).
+  if(_hasPendingLocalChanges) return;
   try{
     const r = await fetch(
       `${SB_URL}/rest/v1/cc_store?key=eq.tasks&select=updated_at,value`,
@@ -3155,6 +3160,7 @@ function setSaveStatus(status){
 
 function scheduleAutoSave(){
   if(!_initComplete) return; // Don't auto-save during init — Supabase hasn't loaded yet
+  _hasPendingLocalChanges = true; // block live-sync from reverting this edit until it's saved
   clearTimeout(autoSaveTimer);
   setSaveStatus('pending');
   document.getElementById('save-btn').textContent = '⏳ Saving…';
@@ -3214,6 +3220,14 @@ async function doSave(){
     });
     setSaveStatus('saved');
     state.savedAt = new Date().toISOString();
+    // Our local changes are now persisted — allow live-sync again, and advance the
+    // sync watermark so the poller doesn't treat our own write as a remote change
+    // (which would otherwise reload and could revert in-flight edits).
+    _hasPendingLocalChanges = false;
+    try{
+      const tsRow = await fetch(`${SB_URL}/rest/v1/cc_store?key=eq.tasks&select=updated_at`, { headers: SB_HEADERS });
+      if(tsRow.ok){ const rows = await tsRow.json(); if(rows[0]?.updated_at) _lastSyncedAt = rows[0].updated_at; }
+    }catch(e){}
     const btn=document.getElementById('save-btn');
     if(btn){ btn.textContent='✅ Saved'; btn.title='Saved to cloud'; }
   }catch(e){
@@ -3252,8 +3266,8 @@ async function forceReloadFromCloud(){
       medEntries = d.medications;
       try{ localStorage.setItem(MED_KEY, JSON.stringify(medEntries)); }catch(e){}
     }
-    if(d.hr_leave    && d.hr_leave.length > 0)   window._hrLeave   = d.hr_leave;
-    if(d.hr_devices  && d.hr_devices.length > 0) window._hrDevices = d.hr_devices;
+    if(d.hr_leave   && d.hr_leave.length   > 0){ window._hrLeave   = d.hr_leave;   try{localStorage.setItem(HR_LEAVE_KEY,  JSON.stringify(window._hrLeave));  }catch(e){} }
+    if(d.hr_devices && d.hr_devices.length > 0){ window._hrDevices = d.hr_devices; try{localStorage.setItem(HR_DEVICES_KEY,JSON.stringify(window._hrDevices));}catch(e){} }
 
     // Save to localStorage so it persists
     try{
@@ -3304,8 +3318,8 @@ async function syncLoad(){
       // Persist to dedicated key immediately so medLoad() finds it
       try{ localStorage.setItem(MED_KEY, JSON.stringify(medEntries)); }catch(e){}
     }
-    if(d.hr_leave    && d.hr_leave.length    > (window._hrLeave||[]).length)    window._hrLeave   = d.hr_leave;
-    if(d.hr_devices  && d.hr_devices.length  > (window._hrDevices||[]).length)  window._hrDevices = d.hr_devices;
+    if(d.hr_leave   && d.hr_leave.length   > (window._hrLeave||[]).length){ window._hrLeave   = d.hr_leave;   try{localStorage.setItem(HR_LEAVE_KEY,  JSON.stringify(window._hrLeave));  }catch(e){} }
+    if(d.hr_devices && d.hr_devices.length > (window._hrDevices||[]).length){ window._hrDevices = d.hr_devices; try{localStorage.setItem(HR_DEVICES_KEY,JSON.stringify(window._hrDevices));}catch(e){} }
 
     console.log('[syncLoad] Supabase loaded: tasks='+state.tasks.length+' patients='+(patients||[]).length);
 
@@ -6250,9 +6264,23 @@ function reopenTask(taskId){
 }
 function markTaskDone(taskId){
   const t = state.tasks.find(x=>x.id===taskId);
-  if(!t||t.status==='done') return;
-  t.status='done'; t.updatedAt=new Date().toISOString();
-  renderAll(); scheduleAutoSave(); showToast('Task marked done ✓');
+  if(t){
+    if(t.status==='done') return;
+    t.status='done'; t.updatedAt=new Date().toISOString();
+    renderAll(); if(currentPatientId) renderPtTabContent(); scheduleAutoSave(); showToast('Task marked done ✓');
+    return;
+  }
+  // Legacy patient task (lives only on patient.tasks[], not in state.tasks)
+  const lt = markLegacyPtTask(taskId, 'done');
+  if(lt){ ptSave(); renderPtTabContent(); renderAll(); showToast('Task marked done ✓'); }
+}
+// Find and update a legacy patient task by id across all patients. Returns the task or null.
+function markLegacyPtTask(taskId, status){
+  for(const p of (patients||[])){
+    const lt = (p.tasks||[]).find(x=>x.id===taskId);
+    if(lt){ lt.status=status; lt.updatedAt=new Date().toISOString(); return lt; }
+  }
+  return null;
 }
 function requestHelp(taskId){
   const t = state.tasks.find(x=>x.id===taskId);
@@ -7868,7 +7896,9 @@ function openModal(id){
   if(id==='data-sync-modal'){        setTimeout(renderSyncStatus, 50); }
   if(id==='hr-modal'){
     hrLoad();
-    _hrYear=new Date().getFullYear(); _hrMonth=new Date().getMonth();
+    // Only reset to current month on very first open; preserve navigation position afterwards
+    if(!_hrYear) _hrYear = new Date().getFullYear();
+    if(_hrMonth === undefined || _hrMonth === null) _hrMonth = new Date().getMonth();
     setHrTab(_hrTab);
   }
 }
@@ -8124,12 +8154,16 @@ function renderCompleted(){
 
 function reopenTask(taskId){
   const t = state.tasks.find(x=>x.id===taskId);
-  if(!t) return;
-  t.status = 'todo';
-  t.updatedAt = new Date().toISOString();
-  renderAll();
-  scheduleAutoSave();
-  showToast('Task reopened — moved back to active ✓');
+  if(t){
+    t.status = 'todo';
+    t.updatedAt = new Date().toISOString();
+    renderAll(); if(currentPatientId) renderPtTabContent(); scheduleAutoSave();
+    showToast('Task reopened — moved back to active ✓');
+    return;
+  }
+  // Legacy patient task
+  const lt = markLegacyPtTask(taskId, 'todo');
+  if(lt){ ptSave(); renderPtTabContent(); renderAll(); showToast('Task reopened — moved back to active ✓'); }
 }
 
 function toggleCompletedFolder(){
@@ -8786,6 +8820,20 @@ function openResourcePanel(section){
 
 // ── RENDER ALL ───────────────────────────────────────────
 function renderAll(){
+  // De-duplicate tasks by id (keep the most recently updated copy). Guards against
+  // duplicates that can creep in via sync merges or double-adds.
+  if(Array.isArray(state.tasks)){
+    const seen = new Map();
+    for(const t of state.tasks){
+      if(!t || !t.id) continue;
+      const prev = seen.get(t.id);
+      if(!prev){ seen.set(t.id, t); continue; }
+      const tTs = Date.parse(t.updatedAt||t.created||0)||0;
+      const pTs = Date.parse(prev.updatedAt||prev.created||0)||0;
+      if(tTs >= pTs) seen.set(t.id, t);
+    }
+    if(seen.size !== state.tasks.length) state.tasks = Array.from(seen.values());
+  }
   state.tasks.forEach(t=>{
     if(!t.thread)    t.thread=[];
     if(!t.checklist) t.checklist=[];
@@ -14258,12 +14306,27 @@ let _hrYear       = new Date().getFullYear();
 let _hrMonth      = new Date().getMonth(); // 0-based
 
 function hrLoad(){
-  try{ window._hrLeave   = JSON.parse(localStorage.getItem(HR_LEAVE_KEY)||'[]'); }catch(e){ window._hrLeave=[]; }
-  try{ window._hrDevices = JSON.parse(localStorage.getItem(HR_DEVICES_KEY)||'[]'); }catch(e){ window._hrDevices=[]; }
+  // Only load from localStorage if in-memory is empty — never overwrite data saved this session
+  if(!window._hrLeave || !window._hrLeave.length){
+    try{ window._hrLeave = JSON.parse(localStorage.getItem(HR_LEAVE_KEY)||'[]'); }catch(e){ window._hrLeave=[]; }
+  }
+  if(!window._hrDevices || !window._hrDevices.length){
+    try{ window._hrDevices = JSON.parse(localStorage.getItem(HR_DEVICES_KEY)||'[]'); }catch(e){ window._hrDevices=[]; }
+  }
 }
 function hrSave(){
+  // Write to dedicated HR keys
   localStorage.setItem(HR_LEAVE_KEY,   JSON.stringify(window._hrLeave));
   localStorage.setItem(HR_DEVICES_KEY, JSON.stringify(window._hrDevices));
+  // Also merge into cc_state_backup so Supabase sync picks it up
+  try{
+    const backup = JSON.parse(localStorage.getItem('cc_state_backup')||'{}');
+    backup.hrLeave   = window._hrLeave;
+    backup.hrDevices = window._hrDevices;
+    localStorage.setItem('cc_state_backup', JSON.stringify(backup));
+  }catch(e){}
+  // Trigger cloud save
+  scheduleAutoSave();
 }
 function hrUID(){ return 'hr_'+Date.now()+'_'+Math.random().toString(36).slice(2,5); }
 function hrChangeMonth(d){ _hrMonth+=d; if(_hrMonth>11){_hrMonth=0;_hrYear++;} if(_hrMonth<0){_hrMonth=11;_hrYear--;} renderHrTab(); }
@@ -14544,16 +14607,12 @@ function renderHrLeaveCalendar(el, search){
   const daysInMonth = lastDay.getDate();
   const todayStr = today();
 
-  // Get all team members from state.team + any in leave records
-  const teamFromState = (state?.team||[]).map(m=>m.name);
-  // Use only names that appear in the leave records — source of truth
-  // (avoids duplicates when state.team has first-name-only entries)
-  const teamFromLeave = [...new Set(
-    window._hrLeave
-      .filter(r=>r.type !== '_lieuBalance' && r.type !== '_phEntitlement') // exclude internal records
-      .map(r=>r.member||r.name)
-  )].filter(Boolean);
-  const allMembers = teamFromLeave.sort();
+  // Use state.team as primary source — always shows the correct team names
+  const _stateTeamNames = (state?.team||[]).map(m=>m.name).filter(Boolean);
+  const _leaveRecNames  = [...new Set(window._hrLeave
+    .filter(r=>r.type!=='_lieuBalance'&&r.type!=='_phEntitlement')
+    .map(r=>r.member||r.name))].filter(Boolean);
+  const allMembers = [...new Set([..._stateTeamNames, ..._leaveRecNames])].sort();
 
   // Filter by search
   const members = search ? allMembers.filter(m=>m.toLowerCase().includes(search)) : allMembers;
@@ -14566,14 +14625,14 @@ function renderHrLeaveCalendar(el, search){
     const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
     return window._hrLeave.filter(r=>{
       if(r.type==='_lieuBalance' || r.type==='_phEntitlement') return false;
-      return (r.member||r.name)===member && r.from<=dateStr && (r.to||r.from)>=dateStr;
+      return hrMatchMember(r.member||r.name, member) && r.from<=dateStr && (r.to||r.from)>=dateStr;
     });
   };
 
   // Annual leave entitlement and days taken
   const ANNUAL_ENTITLEMENT = 30; // default; editable per member via notes
   const getSummary = (member) => {
-    const records = window._hrLeave.filter(r=>(r.member||r.name)===member);
+    const records = window._hrLeave.filter(r=>hrMatchMember(r.member||r.name, member));
     const annualTaken = records.filter(r=>r.type==='Annual').reduce((s,r)=>s+(parseFloat(r.days)||0),0);
     const sickTaken   = records.filter(r=>r.type==='Sick').reduce((s,r)=>s+(parseFloat(r.days)||0),0);
     const publicHols  = records.filter(r=>r.type==='Public Holiday').reduce((s,r)=>s+(parseFloat(r.days)||0),0);
