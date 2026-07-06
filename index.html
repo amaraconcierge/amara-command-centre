@@ -3092,7 +3092,6 @@ let isSaving = false;
 let _initComplete = false; // Block auto-saves until init() has fully loaded from Supabase
 let _lastSyncedAt = null; // track when we last got data from Supabase
 let _pollTimer    = null;
-let _hasPendingLocalChanges = false; // true between a local edit and its successful cloud save — blocks live-sync from reverting it
 
 // ── LIVE SYNC POLLING ────────────────────────────────────
 // Polls Supabase every 10s to pick up changes from other devices
@@ -3103,10 +3102,6 @@ function startLiveSync(){
 
 async function liveSyncCheck(){
   if(isSaving || document.hidden) return;
-  // Don't reload from cloud while we have local edits not yet saved — otherwise
-  // a just-completed/edited task gets reverted by stale remote data (the race that
-  // made completed tasks "come back" after a few seconds).
-  if(_hasPendingLocalChanges) return;
   try{
     const r = await fetch(
       `${SB_URL}/rest/v1/cc_store?key=eq.tasks&select=updated_at,value`,
@@ -3160,7 +3155,6 @@ function setSaveStatus(status){
 
 function scheduleAutoSave(){
   if(!_initComplete) return; // Don't auto-save during init — Supabase hasn't loaded yet
-  _hasPendingLocalChanges = true; // block live-sync from reverting this edit until it's saved
   clearTimeout(autoSaveTimer);
   setSaveStatus('pending');
   document.getElementById('save-btn').textContent = '⏳ Saving…';
@@ -3220,14 +3214,6 @@ async function doSave(){
     });
     setSaveStatus('saved');
     state.savedAt = new Date().toISOString();
-    // Our local changes are now persisted — allow live-sync again, and advance the
-    // sync watermark so the poller doesn't treat our own write as a remote change
-    // (which would otherwise reload and could revert in-flight edits).
-    _hasPendingLocalChanges = false;
-    try{
-      const tsRow = await fetch(`${SB_URL}/rest/v1/cc_store?key=eq.tasks&select=updated_at`, { headers: SB_HEADERS });
-      if(tsRow.ok){ const rows = await tsRow.json(); if(rows[0]?.updated_at) _lastSyncedAt = rows[0].updated_at; }
-    }catch(e){}
     const btn=document.getElementById('save-btn');
     if(btn){ btn.textContent='✅ Saved'; btn.title='Saved to cloud'; }
   }catch(e){
@@ -4873,35 +4859,38 @@ function taskCardHtml(t){
   const ab = (extra='') => `font-family:var(--sans);width:26px;height:26px;border-radius:50%;border:1.5px solid var(--border);background:var(--white);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:all 0.12s;flex-shrink:0;padding:0;${extra}`;
   return `<div class="k-card" style="border-left-color:${cat.color};padding:9px 11px;">
 
-    <!-- Row 1: Title -->
-    <div style="display:flex;align-items:flex-start;gap:6px;margin-bottom:2px;">
+    <!-- Row 1: Patient name (primary) OR task title if no patient -->
+    <div style="display:flex;align-items:flex-start;gap:6px;margin-bottom:1px;">
       ${doneCheckbox(t.id)}
-      <div style="flex:1;min-width:0;cursor:pointer;" onclick="openTaskModal('${t.id}')">
-        <div style="font-size:12px;font-weight:700;color:var(--text);line-height:1.3;">${t.title}</div>
+      <div style="flex:1;min-width:0;">
+        ${ptName
+          ? `<div style="font-size:13px;font-weight:800;color:var(--green);line-height:1.25;display:flex;align-items:center;gap:4px;cursor:pointer;" title="Open patient file" onclick="event.stopPropagation();openPatientFromTask('${pt.id}')"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>${ptName}</div>`
+          : `<div style="font-size:12px;font-weight:700;color:var(--text);line-height:1.3;cursor:pointer;" onclick="openTaskModal('${t.id}')">${t.title}</div>`
+        }
       </div>
     </div>
 
-    <!-- Row 2: Patient name -->
-    ${ptName?`<div style="font-size:10px;font-weight:600;color:var(--green);margin:1px 0 3px 20px;display:flex;align-items:center;gap:3px;cursor:pointer;text-decoration:underline;text-underline-offset:2px;" title="Open patient file" onclick="event.stopPropagation();openPatientFromTask('${pt.id}')"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>${ptName}</div>`:''}
+    <!-- Row 2: Task title subtitle (only when patient exists) -->
+    ${ptName ? `<div style="font-size:11px;font-weight:600;color:var(--text);opacity:0.82;line-height:1.35;margin:2px 0 3px 23px;cursor:pointer;" onclick="openTaskModal('${t.id}')">${t.title}</div>` : ''}
 
     <!-- Row 3: Description -->
-    ${t.desc?`<div style="font-size:11px;color:var(--muted);line-height:1.4;margin:0 0 4px 20px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${t.desc}</div>`:''}
+    ${t.desc?`<div style="font-size:11px;color:var(--muted);line-height:1.4;margin:0 0 4px 23px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${t.desc}</div>`:''}
 
     <!-- Row 4: Priority · Due -->
-    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin:2px 0 3px 20px;">
+    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin:2px 0 3px 23px;">
       <span class="tag" style="background:${PRI_BG[t.priority]};color:${PRI_COLORS[t.priority]};font-size:9px;">${PRI_LABELS[t.priority]}</span>
       ${dueLabel?`<span class="tag due-label ${dueClass}" style="font-size:9px;">${dueLabel}</span>`:''}
     </div>
 
     <!-- Row 5: Task lead · Doctor(s) -->
-    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin:0 0 6px 20px;">
+    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin:0 0 6px 23px;">
       ${member?`<span style="font-size:9px;font-weight:600;display:inline-flex;align-items:center;gap:3px;color:var(--muted);"><span style="width:10px;height:10px;border-radius:50%;background:${member.color};display:inline-block;flex-shrink:0;"></span>${member.name}</span>`:''}
       ${drs.map(d=>`<span style="font-size:9px;font-weight:600;padding:1px 6px;border-radius:8px;background:${d.color}15;color:${d.color};">🩺 ${d.name}</span>`).join('')}
       ${leaveWarn?`<span class="leave-warning" style="font-size:9px;"></span>`:''}
     </div>
 
     <!-- Action row: 💬 LEFT · spacer · ✓ 🔍 ✏ 🤝 RIGHT · timer -->
-    <div style="display:flex;align-items:center;gap:6px;margin-left:20px;">
+    <div style="display:flex;align-items:center;gap:6px;margin-left:23px;">
       <!-- LEFT: Comms (bigger, 28px to match complete btn) -->
       <button onclick="event.stopPropagation();openTaskModal('${t.id}');setTimeout(()=>{toggleTaskComments();},300)" title="Comments &amp; updates"
         style="font-family:var(--sans);width:32px;height:32px;border-radius:50%;border:2px solid var(--green-mid);background:var(--white);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;position:relative;transition:all 0.12s;"
@@ -6264,23 +6253,9 @@ function reopenTask(taskId){
 }
 function markTaskDone(taskId){
   const t = state.tasks.find(x=>x.id===taskId);
-  if(t){
-    if(t.status==='done') return;
-    t.status='done'; t.updatedAt=new Date().toISOString();
-    renderAll(); if(currentPatientId) renderPtTabContent(); scheduleAutoSave(); showToast('Task marked done ✓');
-    return;
-  }
-  // Legacy patient task (lives only on patient.tasks[], not in state.tasks)
-  const lt = markLegacyPtTask(taskId, 'done');
-  if(lt){ ptSave(); renderPtTabContent(); renderAll(); showToast('Task marked done ✓'); }
-}
-// Find and update a legacy patient task by id across all patients. Returns the task or null.
-function markLegacyPtTask(taskId, status){
-  for(const p of (patients||[])){
-    const lt = (p.tasks||[]).find(x=>x.id===taskId);
-    if(lt){ lt.status=status; lt.updatedAt=new Date().toISOString(); return lt; }
-  }
-  return null;
+  if(!t||t.status==='done') return;
+  t.status='done'; t.updatedAt=new Date().toISOString();
+  renderAll(); scheduleAutoSave(); showToast('Task marked done ✓');
 }
 function requestHelp(taskId){
   const t = state.tasks.find(x=>x.id===taskId);
@@ -6577,8 +6552,8 @@ function renderTaskListView(tasks){
             return `<div style="border-bottom:${i<arr.length-1?'1px solid var(--border)':'none'};">
               <div onclick="openTaskModal('${t.id}')" style="display:grid;grid-template-columns:2fr 100px 90px 90px 44px;padding:8px 16px;gap:8px;cursor:pointer;align-items:center;transition:background 0.1s;" onmouseover="this.style.background='var(--green-pale)'" onmouseout="this.style.background='transparent'">
                 <div style="min-width:0;">
-                  <div style="font-size:11px;font-weight:700;color:var(--text);border-left:3px solid ${cat.color};padding-left:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${t.status==='done'?'text-decoration:line-through;opacity:0.5;':''}">${t.title}</div>
-                  ${ptRef?`<div style="font-size:10px;font-weight:600;color:var(--green);padding-left:11px;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;text-decoration:underline;text-underline-offset:2px;" onclick="event.stopPropagation();openPatientFromTask('${ptRef.id}')">${ptDisplayName(ptRef)}</div>`:''}
+                  ${ptRef?`<div style="font-size:12px;font-weight:800;color:var(--green);border-left:3px solid ${cat.color};padding-left:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;" onclick="event.stopPropagation();openPatientFromTask('${ptRef.id}')">${ptDisplayName(ptRef)}</div>`:''}
+                  <div style="font-size:11px;font-weight:700;color:var(--text);border-left:3px solid ${cat.color};padding-left:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${t.status==='done'?'text-decoration:line-through;opacity:0.5;':''}">${ptRef ? `<span style="opacity:0.75;">${t.title}</span>` : t.title}</div>
                   <div style="padding-left:11px;margin-top:2px;"><span class="tag" style="background:${STATUS_BG[t.status]};color:${STATUS_COLORS[t.status]}">${STATUS_LABELS[t.status]}</span>${drs.length?`<span style="font-size:9px;color:var(--muted);margin-left:4px;">🩺 ${drs.map(d=>d.name).join(', ')}</span>`:''}</div>
                 </div>
                 <div><span class="tag" style="background:${PRI_BG[t.priority]};color:${PRI_COLORS[t.priority]}">${PRI_LABELS[t.priority]}</span></div>
@@ -6694,13 +6669,13 @@ function renderTaskListView(tasks){
               <div style="display:flex;align-items:flex-start;gap:8px;">
                 <div style="width:3px;min-height:36px;border-radius:2px;background:${cat.color};flex-shrink:0;"></div>
                 <div style="flex:1;min-width:0;">
+                  ${ptRef?`<div style="font-size:13px;font-weight:800;color:var(--green);margin-bottom:1px;cursor:pointer;display:flex;align-items:center;gap:3px;" title="Open patient file" onclick="event.stopPropagation();openPatientFromTask('${ptRef.id}')"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>${ptDisplayName(ptRef)}</div>`:''}
                   <div style="display:flex;align-items:flex-start;gap:4px;margin-bottom:2px;">
-                    <div style="flex:1;font-size:12px;font-weight:700;color:var(--text);${t.status==='done'?'text-decoration:line-through;opacity:0.5;':''}">${t.title}</div>
+                    <div style="flex:1;font-size:12px;font-weight:${ptRef?'600':'700'};color:var(--text);opacity:${ptRef?'0.82':'1'};${t.status==='done'?'text-decoration:line-through;opacity:0.5;':''}">${t.title}</div>
                     <button onclick="event.stopPropagation();toggleTimer('${t.id}')" title="${window._activeTimer?.taskId===t.id?'Stop timer':'Start timer'}"
                       class="timer-btn ${window._activeTimer?.taskId===t.id?'running':''}"
                       style="font-size:9px;padding:2px 5px;flex-shrink:0;">${window._activeTimer?.taskId===t.id?'⏹':'▶'}</button>
                   </div>
-                  ${ptRef?`<div style="font-size:10px;font-weight:600;color:var(--green);margin-bottom:3px;cursor:pointer;text-decoration:underline;text-underline-offset:2px;" title="Open patient file" onclick="event.stopPropagation();openPatientFromTask('${ptRef.id}')">${ptDisplayName(ptRef)}</div>`:''}
                   <div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;">
                     <span class="tag" style="background:${PRI_BG[t.priority]};color:${PRI_COLORS[t.priority]}">${PRI_LABELS[t.priority]}</span>
                     ${member?`<span style="font-size:9px;color:var(--muted);">👤 ${member.name}</span>`:''}
@@ -6731,13 +6706,11 @@ function renderTaskListView(tasks){
       // ── Desktop: grid row — Task | Lead | Doctor | Priority | Due | 💬 | Updated | ✓ ──
       return `<div style="border-bottom:${i<arr.length-1?'1px solid var(--border)':'none'};">
         <div onclick="openTaskModal('${t.id}')" style="display:grid;grid-template-columns:3fr 100px 100px 90px 90px 50px 50px 70px 36px;padding:9px 16px;gap:8px;cursor:pointer;align-items:center;transition:background 0.1s;" onmouseover="this.style.background='var(--green-pale)'" onmouseout="this.style.background='transparent'">
-          <!-- Col 1: Title → patient → status -->
+          <!-- Col 1: Patient (primary) → title → status -->
           <div style="min-width:0;">
-            <div style="font-size:12px;font-weight:700;color:var(--text);border-left:3px solid ${cat.color};padding-left:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${t.status==='done'?'text-decoration:line-through;opacity:0.5;':''}">${t.title}</div>
-            ${ptRef?`<div style="font-size:10px;font-weight:600;color:var(--green);padding-left:11px;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;text-decoration:underline;text-underline-offset:2px;" title="Open patient file" onclick="event.stopPropagation();openPatientFromTask('${ptRef.id}')">${ptDisplayName(ptRef)}</div>`:''}
-            <div style="padding-left:11px;margin-top:2px;">
-              <span class="tag" style="background:${STATUS_BG[t.status]};color:${STATUS_COLORS[t.status]}">${STATUS_LABELS[t.status]}</span>
-            </div>
+            ${ptRef?`<div style="font-size:12px;font-weight:800;color:var(--green);border-left:3px solid ${cat.color};padding-left:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;" title="Open patient file" onclick="event.stopPropagation();openPatientFromTask('${ptRef.id}')">${ptDisplayName(ptRef)}</div>`:''}
+            <div style="font-size:${ptRef?'11':'12'}px;font-weight:${ptRef?'600':'700'};color:var(--text);border-left:3px solid ${cat.color};padding-left:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${ptRef?'opacity:0.8;':''}${t.status==='done'?'text-decoration:line-through;opacity:0.5;':''}">${t.title}</div>
+            <div style="padding-left:11px;margin-top:2px;"><span class="tag" style="background:${STATUS_BG[t.status]};color:${STATUS_COLORS[t.status]}">${STATUS_LABELS[t.status]}</span></div>
           </div>
           <!-- Col 2: Task lead -->
           <div style="display:flex;align-items:center;gap:5px;min-width:0;">
@@ -8154,16 +8127,12 @@ function renderCompleted(){
 
 function reopenTask(taskId){
   const t = state.tasks.find(x=>x.id===taskId);
-  if(t){
-    t.status = 'todo';
-    t.updatedAt = new Date().toISOString();
-    renderAll(); if(currentPatientId) renderPtTabContent(); scheduleAutoSave();
-    showToast('Task reopened — moved back to active ✓');
-    return;
-  }
-  // Legacy patient task
-  const lt = markLegacyPtTask(taskId, 'todo');
-  if(lt){ ptSave(); renderPtTabContent(); renderAll(); showToast('Task reopened — moved back to active ✓'); }
+  if(!t) return;
+  t.status = 'todo';
+  t.updatedAt = new Date().toISOString();
+  renderAll();
+  scheduleAutoSave();
+  showToast('Task reopened — moved back to active ✓');
 }
 
 function toggleCompletedFolder(){
@@ -8820,20 +8789,6 @@ function openResourcePanel(section){
 
 // ── RENDER ALL ───────────────────────────────────────────
 function renderAll(){
-  // De-duplicate tasks by id (keep the most recently updated copy). Guards against
-  // duplicates that can creep in via sync merges or double-adds.
-  if(Array.isArray(state.tasks)){
-    const seen = new Map();
-    for(const t of state.tasks){
-      if(!t || !t.id) continue;
-      const prev = seen.get(t.id);
-      if(!prev){ seen.set(t.id, t); continue; }
-      const tTs = Date.parse(t.updatedAt||t.created||0)||0;
-      const pTs = Date.parse(prev.updatedAt||prev.created||0)||0;
-      if(tTs >= pTs) seen.set(t.id, t);
-    }
-    if(seen.size !== state.tasks.length) state.tasks = Array.from(seen.values());
-  }
   state.tasks.forEach(t=>{
     if(!t.thread)    t.thread=[];
     if(!t.checklist) t.checklist=[];
